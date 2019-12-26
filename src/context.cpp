@@ -9,5 +9,5 @@ AppContext* AppContextBuider::assembleAppContext() {
 }
 
 void AppContextBuider::initializeOpenGL() {
-    
+
 }
