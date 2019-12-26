@@ -31,5 +31,11 @@
 *.out
 *.app
 
+# build files
 build/
+lib/*
+bin/*
+# OSX specific files
+.DS_Store
+# visual studio code files
 .vscode/

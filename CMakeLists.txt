@@ -11,9 +11,10 @@ IF(NOT DEFINED CMAKE_BUILD_TYPE)
   SET(CMAKE_BUILD_TYPE DEBUG CACHE STRING "Choose: RelWithDebInfo Release Debug MinSizeRel None")
 ENDIF()
 
-PROJECT(project_edge)
+PROJECT(project_edge
+        VERSION 0.0.1)
 
-SET(MY_DIR ${project_edge_SOURCE_DIR})
+SET(${project_edge_SOURCE_DIR} "${CMAKE_SOURCE_DIR}/src")
 
 OPTION(ENABLE_OPENGL "Enable OpenGL support" ON)
 IF(ENABLE_PROFILING)
@@ -26,23 +27,28 @@ ENDIF()
 
 FIND_PACKAGE(freenect2) # Inlcude kinect libraries
 
-INCLUDE_DIRECTORIES(
-  ${freenect2_INCLUDE_DIR}
-)
+SET(project_edge_INCLUDE_DIR
+    "${CMAKE_SOURCE_DIR}/include")
 
-SET(project_edge_src
-  app.cpp
-  viewer.cpp
-)
+
+file(GLOB project_edge_SOURCES src/*.cpp)
+
+file(GLOB project_edge_HEADERS src/*.hpp)
 
 SET(project_edge_DLLS
   ${freenect2_DLLS}
 )
 
+INCLUDE_DIRECTORIES(
+        ${freenect2_INCLUDE_DIR}
+        ${project_edge_INCLUDE_DIR}
+)
 
 IF(ENABLE_OPENGL)
-  FIND_PACKAGE(GLFW3)
-  FIND_PACKAGE(OpenGL)
+  # Prefer OpenGLX Over Legacy
+  set(OpenGL_GL_PREFERENCE "GLVND")
+  FIND_PACKAGE(glfw3 REQUIRED)
+  FIND_PACKAGE(OpenGL REQUIRED)
   IF(GLFW3_FOUND AND OPENGL_FOUND)
     INCLUDE_DIRECTORIES(
       ${GLFW3_INCLUDE_DIRS}
@@ -62,9 +68,18 @@ IF(ENABLE_OPENGL)
   ENDIF()
 ENDIF(ENABLE_OPENGL)
 
+IF(ENABLE_OPENCV)
+  FIND_PACKAGE(OpenCV REQUIRED)
+  IF(OpenCV_FOUND)
+    INCLUDE_DIRECTORIES(${OpenCV_INCLUDE_DIRS})
+    TARGET_LINK_LIBRARIES(project_edge ${OpenCV_LIBS})
+  ENDIF()
+ENDIF(ENABLE_OPENCV)
+
 ADD_EXECUTABLE(project_edge
+  ${project_edge_SOURCES}
   ${project_edge_src}
-)
+        src/frame.cpp src/frame.h src/pipeline.cpp src/pipeline.h src/context.cpp src/context.h)
 
 TARGET_LINK_LIBRARIES(project_edge
   ${project_edge_LIBRARIES}
