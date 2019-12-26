@@ -7,8 +7,12 @@
 
 #include <string>
 #include <stack>
+#include <mutex>
 
 #include "context.h"
+#include "frame.h"
+
+using PipelineID = unsigned int;
 
 class IPipeline {
 public:
@@ -23,12 +27,28 @@ class PipelineFilter: PipelineSource{
 
 };
 
+/***************************************************************************//**
+ *  Pipeline
+ *  A Synhronous object use for processing incoming image information.
+ ******************************************************************************/
 class Pipeline: public IPipeline {
 protected:
-    std::stack<PipelineFilter> filters;
+    std::stack<PipelineFilter> filters_;
+    std::stack<ImageFrame> image_frame_buffer_;
+    std::mutex buffer_mtx_;
+
+    void processFrame();
+    /// Fetches the next available frame.
+    const ImageFrame &fetchFrame();
+
 
 public:
-    Pipeline(std::string name, AppContext* context);
+    Pipeline(PipelineID id, AppContext* context);
+
+    /// Synchronous Method for inserting frame element into processing pipeline.
+    /// \param [in] frame Frame object to insert into pipeline for processing.
+    void insertFrame(ImageFrame &frame);
+
 };
 
 

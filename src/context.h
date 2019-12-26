@@ -5,8 +5,21 @@
 #ifndef PROJECT_EDGE_CONTEXT_H
 #define PROJECT_EDGE_CONTEXT_H
 
+class AppContext;
+
+class AppContextBuider {
+public:
+    AppContext* assembleAppContext();
+private:
+    void initializeOpenGL();
+};
 
 class AppContext {
+public:
+    void initialzieAppContext();
+private:
+    void initializeOpenGL();
+    void initailzieCUDA();
 
 };
 
