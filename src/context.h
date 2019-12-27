@@ -5,23 +5,37 @@
 #ifndef PROJECT_EDGE_CONTEXT_H
 #define PROJECT_EDGE_CONTEXT_H
 
-class AppContext;
-
-class AppContextBuider {
-public:
-    AppContext* assembleAppContext();
-private:
-    void initializeOpenGL();
-};
+using CudaDevice = int;
 
 class AppContext {
 public:
-    void initialzieAppContext();
-private:
-    void initializeOpenGL();
-    void initailzieCUDA();
+    class Builder;
 
+    AppContext(const CudaDevice &cuda_device):
+            cuda_device_(cuda_device) {}
+
+private:
+    const CudaDevice cuda_device_;
 };
+
+
+/*****************************************************/
+class AppContext::Builder {
+public:
+    /// Default Constructor
+    Builder():
+    cuda_device_(-1){}
+
+    AppContext* Build() const;
+    // void initializeOpenGL();
+
+    void initializeCuda();
+    bool isCudaInitialized(){return this->cuda_device_ != -1;}
+
+private:
+    CudaDevice cuda_device_;
+};
+
 
 
 #endif //PROJECT_EDGE_CONTEXT_H

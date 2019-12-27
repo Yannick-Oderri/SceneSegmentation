@@ -3,11 +3,13 @@
 //
 
 #include "context.h"
+#include <boost/log/trivial.hpp>
 
-AppContext* AppContextBuider::assembleAppContext() {
-
+AppContext* AppContext::Builder::Build() const {
+    return nullptr;
 }
 
-void AppContextBuider::initializeOpenGL() {
-
+void AppContext::Builder::initializeCuda() {
+    BOOST_LOG_TRIVIAL(info) << "Initializing Nvidia CUDA";
+    this->cuda_device_ = -1;
 }

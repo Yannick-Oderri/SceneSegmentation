@@ -18,33 +18,67 @@ PROJECT(project_edge
 SET(${project_edge_SOURCE_DIR} "${CMAKE_SOURCE_DIR}/src")
 
 OPTION(ENABLE_OPENGL "Enable OpenGL support" ON)
+OPTION(ENABLE_OPENCV "Enable OpenCV support" ON)
+OPTION(ENABLE_BOOST "Enable Boost support" ON)
+OPTION(ENABLE_FREENECT2 "Enable Kinectv2 Drivers" OFF) # not functional atm
+option(PACKAGE_TESTS "Build the tests" ON)
+
+
 IF(ENABLE_PROFILING)
 SET(LIBFREENECT2_WITH_PROFILING 1)
 ENDIF()
 
-IF(ENABLE_PROFILING)
-  SET(PROJECT_EDGE_WITH_PROFILING 1)
-ENDIF()
 
-FIND_PACKAGE(freenect2) # Inlcude kinect libraries
-
-SET(project_edge_INCLUDE_DIR
-    "${CMAKE_SOURCE_DIR}/include")
-
-
-file(GLOB project_edge_SOURCES src/*.cpp)
-
-file(GLOB project_edge_HEADERS src/*.hpp)
-
-SET(project_edge_DLLS
-  ${freenect2_DLLS}
+# ========================================================
+# = Setup Source Elements
+# ========================================================
+SET(project_edge_SOURCE
+        app.cpp
+        context.cpp
+        frame.cpp
+        pipeline.cpp
+        viewer.cpp
+)
+SET(project_edge_HEADERS
+        app.h
+        context.h
+        frame.h
+        pipeline.h
+        viewer.h
 )
 
+FUNCTION(PREPEND var prefix)
+  SET(listVar "")
+  FOREACH(f ${ARGN})
+    LIST(APPEND listVar "${prefix}/${f}")
+  ENDFOREACH(f)
+  SET(${var} "${listVar}" PARENT_SCOPE)
+ENDFUNCTION(PREPEND)
+
+PREPEND(project_edge_src "${CMAKE_SOURCE_DIR}/src" ${project_edge_SOURCE})
+PREPEND(project_edge_hdr "${CMAKE_SOURCE_DIR}/src" ${project_edge_HEADERS})
+
+SET(project_edge_INCLUDE_DIR
+    "${CMAKE_SOURCE_DIR}/include"
+    "${CMAKE_SOURCE_DIR}/src"
+)
+
+
+
+# file(GLOB project_edge_SOURCES src/*.cpp)
+
+# file(GLOB project_edge_HEADERS src/*.h)
+
+
 INCLUDE_DIRECTORIES(
-        ${freenect2_INCLUDE_DIR}
         ${project_edge_INCLUDE_DIR}
 )
 
+set(project_edge_LIBRARIES "")
+
+# ========================================================
+# = OpenGL Library
+# ========================================================
 IF(ENABLE_OPENGL)
   # Prefer OpenGLX Over Legacy
   set(OpenGL_GL_PREFERENCE "GLVND")
@@ -69,21 +103,72 @@ IF(ENABLE_OPENGL)
   ENDIF()
 ENDIF(ENABLE_OPENGL)
 
+# ========================================================
+# = OpenCV Library
+# ========================================================
 IF(ENABLE_OPENCV)
   FIND_PACKAGE(OpenCV REQUIRED)
   IF(OpenCV_FOUND)
-    INCLUDE_DIRECTORIES(${OpenCV_INCLUDE_DIRS})
-    TARGET_LINK_LIBRARIES(project_edge ${OpenCV_LIBS})
+    INCLUDE_DIRECTORIES(${OpenCV_INCLUDE_DIR})
+    LIST(APPEND project_edge_LIBRARIES
+            ${OpenCV_LIBS})
+  ELSE()
+    MESSAGE("Failed to Locate OpenCV Library")
   ENDIF()
 ENDIF(ENABLE_OPENCV)
 
-ADD_EXECUTABLE(project_edge
-  ${project_edge_SOURCES}
-  ${project_edge_src}
-        src/frame.cpp src/frame.h src/pipeline.cpp src/pipeline.h src/context.cpp src/context.h)
+# ========================================================
+# = Boost Library
+# ========================================================
+IF(ENABLE_BOOST)
+  SET(Boost_USE_STATIC_LIBS ON)
+  FIND_PACKAGE(Boost
+          REQUIRED
+          COMPONENTS log thread)
+  IF(Boost_FOUND)
+    INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIR})
+    LIST(APPEND project_edge_LIBRARIES
+            ${Boost_LIBRARIES})
+  ENDIF()
+ENDIF(ENABLE_BOOST)
 
-TARGET_LINK_LIBRARIES(project_edge
-  ${project_edge_LIBRARIES}
-)
+# ========================================================
+# = Freenect2 Library
+# ========================================================
+IF(ENABLE_FREENECT2)
+  FIND_PACKAGE(freenect2
+          REQUIRED)
+  IF(freenect2_FOUND)
+    INCLUDE_DIRECTORIES(${freenect2_INCLUDE_DIR})
+    LIST(APPEND project_edge_DLLS
+            ${freenect2_DLLS}
+            )
+  ENDIF()
+ENDIF(ENABLE_FREENECT2)
 
+# ========================================================
+# = Target Runtime Declarations
+# ========================================================
+IF(PACKAGE_RUNTIME)
+  ADD_EXECUTABLE(project_edge
+          ${project_edge_src})
+  TARGET_LINK_LIBRARIES(project_edge
+    ${project_edge_LIBRARIES}
+  )
+ENDIF()
 
+# ========================================================
+# = Google Test Library
+# ========================================================
+IF(PACKAGE_TESTS)
+  ADD_DEFINITIONS(-DAS_LIB=1)
+  ADD_LIBRARY(project_edge_lib
+          ${project_edge_src})
+  TARGET_LINK_LIBRARIES(project_edge_lib
+          ${project_edge_LIBRARIES}
+  )
+
+  ENABLE_TESTING()
+  INCLUDE(GoogleTest)
+  ADD_SUBDIRECTORY(test)
+endif()
