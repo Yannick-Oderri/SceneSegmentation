@@ -49,6 +49,16 @@ public:
     /// \param [in] frame Frame object to insert into pipeline for processing.
     void insertFrame(ImageFrame &frame);
 
+    void Execute() override;
+
+    Pipeline(std::string name, AppContext* context);
+    void AddStep(PipelineFilter *filter);
+};
+
+
+class PipelineConvolution: protected PipelineFilter {
+public:
+private:
 };
 
 

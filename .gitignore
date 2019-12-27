@@ -33,6 +33,7 @@
 
 # build files
 build/
+cmake-build-debug/
 lib/*
 bin/*
 # OSX specific files
