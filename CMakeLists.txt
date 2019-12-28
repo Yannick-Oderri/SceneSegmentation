@@ -1,5 +1,18 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.11)
 
+# ========================================================
+# = Project Options
+# ========================================================
+OPTION(ENABLE_CUDA "Enable CUDA support" ON)
+OPTION(ENABLE_OPENGL "Enable OpenGL support" ON)
+OPTION(ENABLE_OPENCV "Enable OpenCV support" ON)
+OPTION(ENABLE_BOOST "Enable Boost support" ON)
+OPTION(ENABLE_FREENECT2 "Enable Kinectv2 Drivers" OFF) # not functional atm
+option(PACKAGE_TESTS "Build the tests" ON)
+
+# ========================================================
+# = Setup Compiler Parameters
+# ========================================================
 if(WIN32 AND NOT MINGW)
   if(NOT DEFINED CMAKE_DEBUG_POSTFIX)
     set(CMAKE_DEBUG_POSTFIX "d")
@@ -11,23 +24,12 @@ IF(NOT DEFINED CMAKE_BUILD_TYPE)
   SET(CMAKE_BUILD_TYPE DEBUG CACHE STRING "Choose: RelWithDebInfo Release Debug MinSizeRel None")
 ENDIF()
 
+# ========================================================
+# = Declare Project
+# ========================================================
 PROJECT(project_edge
         VERSION 0.0.1
         LANGUAGES CUDA CXX)
-
-SET(${project_edge_SOURCE_DIR} "${CMAKE_SOURCE_DIR}/src")
-
-OPTION(ENABLE_OPENGL "Enable OpenGL support" ON)
-OPTION(ENABLE_OPENCV "Enable OpenCV support" ON)
-OPTION(ENABLE_BOOST "Enable Boost support" ON)
-OPTION(ENABLE_FREENECT2 "Enable Kinectv2 Drivers" OFF) # not functional atm
-option(PACKAGE_TESTS "Build the tests" ON)
-
-
-IF(ENABLE_PROFILING)
-SET(LIBFREENECT2_WITH_PROFILING 1)
-ENDIF()
-
 
 # ========================================================
 # = Setup Source Elements
@@ -63,18 +65,21 @@ SET(project_edge_INCLUDE_DIR
     "${CMAKE_SOURCE_DIR}/src"
 )
 
-
-
-# file(GLOB project_edge_SOURCES src/*.cpp)
-
-# file(GLOB project_edge_HEADERS src/*.h)
-
-
 INCLUDE_DIRECTORIES(
         ${project_edge_INCLUDE_DIR}
+        "${CMAKE_SOURCE_DIR}/extern/nvidia-common/inc"
 )
 
-set(project_edge_LIBRARIES "")
+# ========================================================
+# = Cuda Support
+# ========================================================
+IF(ENABLE_CUDA)
+  find_library(CUDART_LIBRARY cudart ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
+
+  INCLUDE_DIRECTORIES(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+  LIST(APPEND project_edge_LIBRARIES
+          ${CUDART_LIBRARY})
+ENDIF()
 
 # ========================================================
 # = OpenGL Library
@@ -143,6 +148,9 @@ IF(ENABLE_FREENECT2)
     LIST(APPEND project_edge_DLLS
             ${freenect2_DLLS}
             )
+      IF(ENABLE_PROFILING)
+        SET(LIBFREENECT2_WITH_PROFILING 1)
+      ENDIF()
   ENDIF()
 ENDIF(ENABLE_FREENECT2)
 
@@ -151,9 +159,18 @@ ENDIF(ENABLE_FREENECT2)
 # ========================================================
 IF(PACKAGE_RUNTIME)
   ADD_EXECUTABLE(project_edge
-          ${project_edge_src})
+          ${project_edge_src} src/dataflow/PipeFilter.cpp src/dataflow/PipeFilter.h src/dataflow/queue_client.h test/pipeline_tests.cpp)
+  TARGET_COMPILE_FEATURES(project_edge
+          PUBLIC cxx_std_14)
+  SET_TARGET_PROPERTIES(project_edge
+          PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
   TARGET_LINK_LIBRARIES(project_edge
     ${project_edge_LIBRARIES}
+  )
+  TARGET_INCLUDE_DIRECTORIES(
+          project_edge
+          PRIVATE
+          ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
   )
 ENDIF()
 
