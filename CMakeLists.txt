@@ -3,12 +3,14 @@ CMAKE_MINIMUM_REQUIRED(VERSION 3.11)
 # ========================================================
 # = Project Options
 # ========================================================
-OPTION(ENABLE_CUDA "Enable CUDA support" ON)
+OPTION(ENABLE_CUDA "Enable CUDA support" OFF)
 OPTION(ENABLE_OPENGL "Enable OpenGL support" ON)
 OPTION(ENABLE_OPENCV "Enable OpenCV support" ON)
 OPTION(ENABLE_BOOST "Enable Boost support" ON)
 OPTION(ENABLE_FREENECT2 "Enable Kinectv2 Drivers" OFF) # not functional atm
-option(PACKAGE_TESTS "Build the tests" ON)
+OPTION(PACKAGE_TESTS "Build the tests" ON)
+OPTION(PACKAGE_RUNTIME "Build runtime files" OFF)
+
 
 # ========================================================
 # = Setup Compiler Parameters
@@ -24,12 +26,22 @@ IF(NOT DEFINED CMAKE_BUILD_TYPE)
   SET(CMAKE_BUILD_TYPE DEBUG CACHE STRING "Choose: RelWithDebInfo Release Debug MinSizeRel None")
 ENDIF()
 
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 # ========================================================
 # = Declare Project
 # ========================================================
-PROJECT(project_edge
-        VERSION 0.0.1
-        LANGUAGES CUDA CXX)
+IF(ENABLE_CUDA)
+  ADD_DEFINITIONS(-DWITH_CUDA=1)
+  PROJECT(project_edge
+          VERSION 0.0.1
+          LANGUAGES CUDA CXX)
+ELSE()
+  PROJECT(project_edge
+          VERSION 0.0.1
+          LANGUAGES CXX)
+ENDIF()
 
 # ========================================================
 # = Setup Source Elements
@@ -38,14 +50,12 @@ SET(project_edge_SOURCE
         app.cpp
         context.cpp
         frame.cpp
-        pipeline.cpp
         viewer.cpp
 )
 SET(project_edge_HEADERS
         app.h
         context.h
         frame.h
-        pipeline.h
         viewer.h
 )
 
@@ -60,6 +70,22 @@ ENDFUNCTION(PREPEND)
 PREPEND(project_edge_src "${CMAKE_SOURCE_DIR}/src" ${project_edge_SOURCE})
 PREPEND(project_edge_hdr "${CMAKE_SOURCE_DIR}/src" ${project_edge_HEADERS})
 
+
+SET(project_edge_SOURCE_TEST
+        dataflow/pipeline.cpp
+        dataflow/pipeline_filter.cpp
+)
+SET(project_edge_HEADERS_TEST
+        dataflow/pipeline.h
+        dataflow/pipeline_filter.h
+)
+
+IF(PACKAGE_TESTS)
+  PREPEND(project_edge_src_test "${CMAKE_SOURCE_DIR}/src" ${project_edge_SOURCE_TEST})
+  PREPEND(project_edge_hdr_test "${CMAKE_SOURCE_DIR}/src" ${project_edge_HEADERS_TEST})
+ENDIF()
+
+
 SET(project_edge_INCLUDE_DIR
     "${CMAKE_SOURCE_DIR}/include"
     "${CMAKE_SOURCE_DIR}/src"
@@ -68,6 +94,7 @@ SET(project_edge_INCLUDE_DIR
 INCLUDE_DIRECTORIES(
         ${project_edge_INCLUDE_DIR}
         "${CMAKE_SOURCE_DIR}/extern/nvidia-common/inc"
+        "${CMAKE_SOURCE_DIR}/src/dataflow"
 )
 
 # ========================================================
@@ -127,6 +154,7 @@ ENDIF(ENABLE_OPENCV)
 # ========================================================
 IF(ENABLE_BOOST)
   SET(Boost_USE_STATIC_LIBS ON)
+  SET(Boost_NO_BOOST_CMAKE ON) # OSX
   FIND_PACKAGE(Boost
           REQUIRED
           COMPONENTS log thread)
@@ -159,7 +187,7 @@ ENDIF(ENABLE_FREENECT2)
 # ========================================================
 IF(PACKAGE_RUNTIME)
   ADD_EXECUTABLE(project_edge
-          ${project_edge_src} src/dataflow/PipeFilter.cpp src/dataflow/PipeFilter.h src/dataflow/queue_client.h test/pipeline_tests.cpp)
+          ${project_edge_src})
   TARGET_COMPILE_FEATURES(project_edge
           PUBLIC cxx_std_14)
   SET_TARGET_PROPERTIES(project_edge
@@ -180,7 +208,7 @@ ENDIF()
 IF(PACKAGE_TESTS)
   ADD_DEFINITIONS(-DAS_LIB=1)
   ADD_LIBRARY(project_edge_lib
-          ${project_edge_src})
+          ${project_edge_src_test})
   TARGET_LINK_LIBRARIES(project_edge_lib
           ${project_edge_LIBRARIES}
   )

@@ -18,7 +18,7 @@ enum PipeFilterType{
     CudaSobelFilter = 0,
 };
 
-class IPipeline {
+class AbstractPipeline {
 public:
     virtual void Execute();
 };
@@ -28,15 +28,17 @@ public:
  *  Pipeline
  *  A Synhronous object use for processing incoming image information.
  ******************************************************************************/
-class Pipeline: public IPipeline {
+class Pipeline: public AbstractPipeline {
 protected:
-
+    typedef std::vector<AbstractPipeFilter> pipeline_filters_;
+    
 public:
     Pipeline(PipelineID id, AppContext* context);
 
 
-    void Execute() override;
+    void Execute() override{};
     void AppendFilter(PipeFilterType filter_type);
+    
 };
 
 

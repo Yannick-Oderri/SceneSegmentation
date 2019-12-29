@@ -4,8 +4,11 @@
 
 #include "context.h"
 #include <boost/log/trivial.hpp>
+#ifdef WITH_CUDA
 #include <cuda_runtime.h>
 #include <helper_cuda.h>
+#endif
+
 
 
 AppContext* AppContext::Builder::Build() const {
@@ -15,6 +18,7 @@ AppContext* AppContext::Builder::Build() const {
 void AppContext::Builder::initializeCuda() {
     BOOST_LOG_TRIVIAL(info) << "Initializing Nvidia CUDA";
 
+#ifdef WITH_CUDA
     CudaDevice devID = -1;
 
 
@@ -27,4 +31,7 @@ void AppContext::Builder::initializeCuda() {
                             << "with compute capability" << major << "." << minor;
 
     this->cuda_device_ = devID;
+#else
+    BOOST_LOG_TRIVIAL(info) << "WITH_CUDA compile flag not set";
+#endif
 }

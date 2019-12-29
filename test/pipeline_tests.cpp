@@ -2,3 +2,78 @@
 // Created by ynki9 on 12/27/19.
 //
 
+#include <string>
+#include <algorithm>
+#include <thread>
+#include <chrono>
+#include <stdio.h>
+#include "gtest/gtest.h"
+
+#include "pipeline_filter.h"
+#include "pipeline.h"
+
+class StringProducer: public ProducerPipeFilter<std::string> {
+public:
+    StringProducer(QueueClient<std::string>* out_queue):
+            ProducerPipeFilter(out_queue) {}
+
+    int count_ = 0;
+    virtual void start() {
+        while(true){
+            this->out_queue_->push(std::to_string(count_));
+            count_++;
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+    }
+};
+
+class StringFilter: public PipeFilter<std::string> {
+public:
+    StringFilter(QueueClient<std::string>* in_queue, QueueClient<std::string>* out_queue):
+            PipeFilter(in_queue, out_queue) {}
+    virtual void start() {
+        while(true) {
+            this->in_queue_->waitData();
+            std::string val = this->in_queue_->front();
+            std::string tval = val + " dog";
+            std::transform(tval.begin(), tval.end(), tval.begin(), ::toupper);
+            this->in_queue_->pop();
+            this->out_queue_->push(tval);
+        }
+    }
+};
+
+class StringViewer: public PipeFilter<std::string> {
+public:
+    StringViewer(QueueClient<std::string>* in_queue, QueueClient<std::string>* out_queue):
+            PipeFilter(in_queue, out_queue){}
+
+    virtual void start() {
+        while(true){
+            this->in_queue_->waitData();
+            std::string val = this->in_queue_->front();
+            std::cout << val << std::endl;
+
+            this->in_queue_->pop();
+        }
+    }
+};
+
+TEST(PipelineTest, integration_test) {
+    QueueClient<std::string>* producer_pipe = new QueueClient<std::string>();
+    QueueClient<std::string>* filter_pipe = new QueueClient<std::string>();
+    QueueClient<std::string>* consumer_pipe = new QueueClient<std::string>();
+
+    StringProducer producer(producer_pipe);
+    std::thread producer_thread(&StringProducer::start, &producer);
+
+    StringFilter filter(producer_pipe, filter_pipe);
+    std::thread filter_thread(&StringFilter::start, &filter);
+
+    StringViewer consumer(filter_pipe, consumer_pipe);
+    std::thread consumer_thread(&StringViewer::start, &consumer);
+
+    producer_thread.join();
+    filter_thread.join();
+    consumer_thread.join();
+}

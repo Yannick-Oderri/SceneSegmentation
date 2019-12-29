@@ -3,7 +3,3 @@
 //
 
 #include "pipeline_filter.h"
-
-void CudaPipeFilter::start() {
-
-}
