@@ -1,0 +1,411 @@
+//
+// Created by ynki9 on 12/31/19.
+//
+
+#include <execinfo.h>
+#include <signal.h>
+#include <opencv2/opencv.hpp>
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+#include <boost/log/trivial.hpp>
+#include "shader.hpp"
+
+#include "gl_edge_disc_filter.h"
+
+
+
+void handler(int sig) {
+    void *array[20];
+    size_t size;
+
+    // get void*'s for all entries on the stack
+    size = backtrace(array, 20);
+
+    // print out all the frames to stderr
+    fprintf(stderr, "Error: signal %d:\n", sig);
+    backtrace_symbols_fd(array, size, STDERR_FILENO);
+    exit(1);
+}
+
+// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
+// ---------------------------------------------------------------------------------------------------------
+void processInput(GLFWwindow *window)
+{
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, true);
+}
+
+void framebuffer_size_callback(GLFWwindow* window, int width, int height){
+    // Ensures frabebuffer size matches windows size
+    if (window != nullptr){
+
+        glViewport(0, 0, width, height);
+    }
+}
+
+void GLEdgeDiscFilter::initialize() {
+
+}
+
+void GLEdgeDiscFilter::start() {
+    signal(SIGABRT, handler);   // install our handler
+
+    // glfw: intialize
+    glfwInit();
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint( GLFW_DOUBLEBUFFER, GL_FALSE ); // use single buffer to avoid vsync
+
+#ifdef __APPLE__
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+#endif
+
+    GLFWwindow* window = glfwCreateWindow(viewport_width_, viewport_height_, "Shader", NULL, NULL);
+    if (window == NULL){
+        std::cout << "Faineld to create GLFW window" << std::endl;
+        glfwTerminate();
+        return;
+    }
+    glfwMakeContextCurrent(window);
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+
+    // glad: load all OpenGL function pointers
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+    {
+        std::cout << "Failed to initialize GLAD" << std::endl;
+        return;
+    }
+    GLuint err;
+
+    Shader blur_shader_1("../../data/shaders/shader_1.vs", "../../data/shaders/bilateral_blur.fs");
+    Shader blur_shader_2("../../data/shaders/shader_1.vs", "../../data/shaders/bilateral_blur.fs");
+    Shader median_blur_shader("../../data/shaders/shader_1.vs", "../../data/shaders/median_blur.fs");
+    Shader sobel_shader("../../data/shaders/shader_1.vs", "../../data/shaders/sobel.fs");
+    Shader shader("../../data/shaders/shader_1.vs", "../../data/shaders/shader_1.fs");
+    shader.enableFramebuffer(true);
+    blur_shader_1.enableFramebuffer(true);
+    //blur_shader_2.enableFramebuffer(true);
+    median_blur_shader.enableFramebuffer(true);
+
+    err = glGetError();
+    if(err != GL_NO_ERROR){
+        std::cout << "Image failed to load "<< err << std::endl;
+        return;
+    }
+
+    GLuint dimg_location = glGetUniformLocation(shader.ID, "dmap");
+    err = glGetError();
+    if(err != GL_NO_ERROR){
+        std::cout << "Get Uniform failed. "<< err << std::endl;
+        return;
+    }
+
+    float vertices[] = {
+            // positions         // colors
+            1.0f, -1.0f, 0.0f,  1.0f, 0.0f, 0.0f, VIEWPORT_WIDTH, 0.0f,  // bottom right
+            -1.0f, -1.0f, 0.0f,  0.0f, 1.0f, 0.0f, 0.0f, 0.0f, // bottom left
+            -1.0f,  1.0f, 0.0f,  0.0f, 0.0f, 1.0f, 0.0f, VIEWPORT_HEIGHT,// top left
+            1.0f,  1.0f, 0.0f,  0.0f, 0.0f, 1.0f, VIEWPORT_WIDTH, VIEWPORT_HEIGHT,// top  right
+    };
+
+    unsigned int indices[] = {
+            0, 1, 2,
+            2, 3, 0
+    };
+
+    unsigned int VBO, VAO, EBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
+
+    // bind the Vertex Array object first, then bind and set vertex buffers,  then configure vertex attributes
+    glBindVertexArray(VAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    // position attribute
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    // color attribute
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    // texture coord attribute
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+
+    // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
+    // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
+    // glBindVertexArray(0);
+
+    shader.use();
+    // glUniform1i(glGetUniformLocation(shader.ID, "dmap"), 0);
+    glUniform1i(dimg_location, 0);
+    err = glGetError();
+    if(err != GL_NO_ERROR){
+
+        std::cout << "Set 1Uniform image failed "<< err << " "<< dimg_location << std::endl;
+        return;
+    }
+
+    glm::mat3x3 y_sobel(glm::vec3(1,2,1), glm::vec3(0, 0, 0), glm::vec3(-1,-2,-1));
+    shader.setMat3("convolutionMatrix_y", y_sobel);
+    glm::mat3x3 x_sobel(glm::vec3(1,0,-1), glm::vec3(2, 0, -2), glm::vec3(1,0,-1));
+    shader.setMat3("convolutionMatrix_x", x_sobel);
+    shader.setInt("dmap", 0);
+
+    blur_shader_1.use();
+    blur_shader_1.setVec2("iResolution", glm::vec2(viewport_width_, viewport_height_));
+    blur_shader_1.setInt("iChannel0", 0);
+
+    median_blur_shader.use();
+    median_blur_shader.setVec2("Tinvsize", glm::vec2(1.0f, 1.0f));
+    median_blur_shader.setInt("iChannel0", 0);
+
+    sobel_shader.use();
+    y_sobel = glm::mat3x3(glm::vec3(-1,-1,-1), glm::vec3(-1, 8,-1), glm::vec3(-1,-1,-1));
+    sobel_shader.setMat3("convolutionMatrix_y", y_sobel);
+    x_sobel = glm::mat3x3(glm::vec3(-1,-1,-1), glm::vec3(-1, 8,-1), glm::vec3(-1,-1,-1));
+    sobel_shader.setMat3("convolutionMatrix_x", x_sobel);
+    sobel_shader.setInt("dmap", 0);
+
+    double previousTime = glfwGetTime();
+    int frameCount = 0;
+
+    // transfer texture to  texture
+    cv::RNG rng(12345);
+//    cv::startWindowThread();
+    // render loop
+    // -----------
+    shader.use();
+    while (!glfwWindowShouldClose(window))
+    {
+        glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+        getInQueue()->waitData();
+        ImageFrame* frame = getInQueue()->front();
+
+        /// Duplicate frame for depth discontinuity
+        unsigned char* dd_buffer = (unsigned char*)malloc(viewport_width_*viewport_height_*sizeof(float));
+        memcpy(dd_buffer, frame->data, viewport_width_*viewport_height_*sizeof(float));
+        ImageFrame dd_frame(viewport_width_, viewport_height_, sizeof(float), dd_buffer);
+
+        processInput(window);
+
+        BOOST_LOG_TRIVIAL(info) << "Receiving edge discription frame:" << frameCount;
+/// Calcuate curve Discontinoutiyu
+        GLuint textID;
+        glGenTextures(1, &textID);
+        //std::cout << glGetError() << std::endl; // returns 0 (no error)
+        glBindTexture(GL_TEXTURE_RECTANGLE, textID);
+        // std::cout << glGetError() << std::endl; // returns 0 (no error)
+        glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_DEPTH_COMPONENT, viewport_width_, viewport_height_, 0, GL_DEPTH_COMPONENT, GL_FLOAT, frame->data);
+        //glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGB, viewport_width_, viewport_height_, 0, GL_RGB, GL_UNSIGNED_BYTE, image.ptr());
+        //glGenerateMipmap(GL_TEXTURE_RECTANGLE);
+
+        // profile time
+        // -----
+        double currentTime = glfwGetTime();
+        frameCount++;
+        BOOST_LOG_TRIVIAL(info) << "PROFILER: " << currentTime-previousTime;
+        previousTime = currentTime;
+        if (currentTime - previousTime >= 1){
+            std::cout << "Frame Rate: " << frameCount << std::endl;
+//            frameCount = 0;
+        }
+        // input
+        // -----
+
+
+        // render
+        // first pass -- Gradient Shader
+        shader.use();
+        glBindFramebuffer(GL_FRAMEBUFFER, shader.getFramebuferID());
+        glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        // render viewport rectangle
+        glActiveTexture(GL_TEXTURE0); // TEXTURE0 image location
+        glBindTexture(GL_TEXTURE_RECTANGLE, textID);
+        shader.use();
+        glBindVertexArray(VAO);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+        // second pass -- bilateral filter shader
+        glBindFramebuffer(GL_FRAMEBUFFER, blur_shader_1.getFramebuferID());
+        glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        blur_shader_1.use();
+        glBindVertexArray(VAO);
+        glActiveTexture(GL_TEXTURE0); // TEXTURE0 image location
+        glBindTexture(GL_TEXTURE_RECTANGLE, shader.getFramebufferTextureID());
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+        // // third pass -- bilateral filter shader
+        // glBindFramebuffer(GL_FRAMEBUFFER, blur_shader_2.getFramebuferID());
+        // glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+        // glClear(GL_COLOR_BUFFER_BIT);
+
+        // blur_shader_2.use();
+        // glBindVertexArray(VAO);
+        // glActiveTexture(GL_TEXTURE0); // TEXTURE0 image location
+        // glBindTexture(GL_TEXTURE_RECTANGLE, blur_shader_1.getFramebufferTextureID());
+        // glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+        // fourth pass -- bilateral filter shader
+        glBindFramebuffer(GL_FRAMEBUFFER, median_blur_shader.getFramebuferID());
+        glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        median_blur_shader.use();
+        glBindVertexArray(VAO);
+        glActiveTexture(GL_TEXTURE0); // TEXTURE0 image location
+        glBindTexture(GL_TEXTURE_RECTANGLE, blur_shader_1.getFramebufferTextureID());
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+        // // // fifth pass -- bilateral filter shader
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        sobel_shader.use();
+        glBindVertexArray(VAO);
+        glActiveTexture(GL_TEXTURE0); // TEXTURE0 image location
+        glBindTexture(GL_TEXTURE_RECTANGLE, median_blur_shader.getFramebufferTextureID());
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+//        glfwSwapBuffers(window);
+        glFlush();
+        glfwPollEvents();
+
+
+//
+
+        cv::Mat t_image(viewport_height_, viewport_width_, CV_32F, dd_frame.data);
+        double min_val, max_val;
+        cv::minMaxLoc(t_image, &min_val, &max_val);
+        t_image.convertTo(t_image, CV_32F, 1.0/max_val, 0);
+        cv::Mat depth_disc;
+        t_image.convertTo(depth_disc, CV_8U, 255, 0);
+
+
+        cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE();
+        clahe->setClipLimit(4);
+        cv::Mat depth_dst;
+
+        clahe->apply(depth_disc, depth_dst);
+        cv::Mat depth_canny;
+        cv::Canny(depth_dst, depth_canny, 43.0, 90.0);
+
+//        cv::flip(depth_canny, depth_canny, 0);
+//        cv::flip(depth_canny, depth_canny, 1);
+        cv::imshow("Depth Edges", depth_canny);
+//        cv::waitKey(0);
+
+
+        unsigned char* new_buffer = (unsigned char*)malloc(frame->width*frame->height*sizeof(int));
+        glReadPixels(0, 0, frame->width, frame->height, GL_RGBA, GL_UNSIGNED_BYTE, new_buffer);
+        cv::Mat mat = cv::Mat(viewport_height_, viewport_width_, CV_8UC4, new_buffer);
+
+        std::vector<cv::Mat> channels(4);
+        cv::split(mat, channels);
+        t_image.convertTo(depth_disc, CV_8U, 255, 0);
+        cv::Mat tt_mat = channels[0] | depth_canny;
+
+        cv::GaussianBlur(tt_mat, tt_mat, cv::Size(3, 3), 20.0);
+//        cv::GaussianBlur(tt_mat, tt_mat, cv::Size(3, 3), 100.0);
+
+        bool done;
+        cv::Mat skel(tt_mat.size(), CV_8UC1, cv::Scalar(0));
+        cv::Mat temp(tt_mat.size(), CV_8UC1);
+        cv::Mat element = cv::getStructuringElement(cv::MORPH_CROSS, cv::Size(3, 3));
+        do
+        {
+            cv::morphologyEx(tt_mat, temp, cv::MORPH_OPEN, element);
+            cv::bitwise_not(temp, temp);
+            cv::bitwise_and(tt_mat, temp, temp);
+            cv::bitwise_or(skel, temp, skel);
+            cv::erode(tt_mat, tt_mat, element);
+
+            double max;
+            cv::minMaxLoc(tt_mat, 0, &max);
+            done = (max == 0);
+        } while (!done);
+
+        cv::imshow("Mix Edges", skel);
+
+//        free(new_buffer);
+//        new_buffer = (unsigned char*)malloc(frame->width*frame->height*sizeof(int))
+//        cv::imshow("Edge Data", mat);
+//        cv::waitKey(0);
+
+        std::vector<std::vector<cv::Point> > contours;
+        std::vector<cv::Vec4i> hierarchy;
+
+        /// Detect edges using canny
+        //Canny( src_gray, canny_output, thresh, thresh*2, 3 );
+        /// Find contours
+        threshold(skel, skel, 0, 200, CV_THRESH_BINARY );
+        cv::findContours( skel, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_NONE, cv::Point(0, 0) );
+        // ImageFrame *new_frame = new ImageFrame(frame->width, frame->height, 4*sizeof(float), new_buffer);
+        // getOutQueue()->push(new_frame);
+
+
+        /// Draw contours
+        cv::Mat drawing = cv::Mat::zeros( mat.size(), CV_8UC3 );
+        for( int i = 0; i< contours.size(); i++ ) {
+            double area = cv::contourArea(contours[i]);
+            if(area < 300) continue;
+            cv::Scalar color = cv::Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+            drawContours( drawing, contours, i, color, 2, 8, hierarchy, 0, cv::Point() );
+//
+//            cv::imshow("contours", drawing);
+//            cv::waitKey(0);
+        }
+
+        /// Show in a window
+//        cv::namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
+//        cv::imshow( "Contours", drawing );
+        cv:cvWaitKey(1);
+
+        free(new_buffer);
+        // delete(frame);
+
+        getInQueue()->pop();
+        glDeleteTextures(1, &textID);
+    }
+}
+
+
+void setlectContourPoints(cv::Mat img, std::vector<std::vector<cv::Point>> contours, int idx, cv::Point){
+    cv::Mat contour_img(img.size(), CV_8UC1);
+
+    int hierarchy;
+    drawContours(contour_img, contours, idx, cv::Scalar(255), 2, cv::FILLED);
+    int contour_area = cv::contourArea(contours[idx]);
+    int expected_points = std::min((int)(contour_area * 0.4f), 500);
+    int num_points = 0;
+    std::vector<cv::Point3d> points(expected_points);
+
+    cv::RNG rng(3432764);
+
+    auto rect = cv::boundingRect(contours[idx]);
+    while(num_points < expected_points){
+        int x = rng.uniform(rect.x, rect.width);
+        int y = rng.uniform(rect.y, rect.height);
+        if(contour_img.at<int>(y+rect.y, x+rect.x) == 255) {
+            points.push_back(cv::Point3d(x, y, img.at<float>(y,x)));
+            num_points++;
+        }
+    }
+
+
+
+}
