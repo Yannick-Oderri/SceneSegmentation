@@ -25,6 +25,7 @@ public:
     void push(const Data& data) {
         std::unique_lock<std::mutex> lck(m_mutex_);
         m_queue_.push(data);
+        m_cv_.notify_all();
     }
 
     bool empty() const {

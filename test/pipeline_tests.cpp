@@ -23,11 +23,12 @@ public:
             this->out_queue_->push(std::to_string(count_));
             count_++;
             std::this_thread::sleep_for(std::chrono::seconds(1));
+            std::cout << "" << count_ << std::endl;
         }
     }
 };
 
-class StringFilter: public PipeFilter<std::string> {
+class StringFilter: public PipeFilter<std::string, std::string> {
 public:
     StringFilter(QueueClient<std::string>* in_queue, QueueClient<std::string>* out_queue):
             PipeFilter(in_queue, out_queue) {}
@@ -35,7 +36,7 @@ public:
         while(true) {
             this->in_queue_->waitData();
             std::string val = this->in_queue_->front();
-            std::string tval = val + " dog";
+            std::string tval = val + ": Filter Level";
             std::transform(tval.begin(), tval.end(), tval.begin(), ::toupper);
             this->in_queue_->pop();
             this->out_queue_->push(tval);
@@ -43,7 +44,7 @@ public:
     }
 };
 
-class StringViewer: public PipeFilter<std::string> {
+class StringViewer: public PipeFilter<std::string, std::string> {
 public:
     StringViewer(QueueClient<std::string>* in_queue, QueueClient<std::string>* out_queue):
             PipeFilter(in_queue, out_queue){}
@@ -60,9 +61,9 @@ public:
 };
 
 TEST(PipelineTest, integration_test) {
-    QueueClient<std::string>* producer_pipe = new QueueClient<std::string>();
-    QueueClient<std::string>* filter_pipe = new QueueClient<std::string>();
-    QueueClient<std::string>* consumer_pipe = new QueueClient<std::string>();
+    auto* producer_pipe = new QueueClient<std::string>();
+    auto* filter_pipe = new QueueClient<std::string>();
+    auto* consumer_pipe = new QueueClient<std::string>();
 
     StringProducer producer(producer_pipe);
     std::thread producer_thread(&StringProducer::start, &producer);

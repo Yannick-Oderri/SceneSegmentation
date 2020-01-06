@@ -14,6 +14,10 @@ public:
     AppContext(const CudaDevice &cuda_device):
             cuda_device_(cuda_device) {}
 
+    inline CudaDevice getCudaDevice(){
+        return this->cuda_device_;
+    }
+
 private:
     const CudaDevice cuda_device_;
 };
@@ -26,7 +30,11 @@ public:
     Builder():
     cuda_device_(-1){}
 
-    AppContext* Build() const;
+    /**
+     * Builds an application context
+     * @return
+     */
+    AppContext* const Build();
     // void initializeOpenGL();
 
     void initializeCuda();

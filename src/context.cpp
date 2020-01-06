@@ -11,8 +11,12 @@
 
 
 
-AppContext* AppContext::Builder::Build() const {
-    return nullptr;
+AppContext* const AppContext::Builder::Build() {
+    this->initializeCuda();
+
+    AppContext* const appContext = new AppContext(this->cuda_device_);
+
+    return appContext;
 }
 
 void AppContext::Builder::initializeCuda() {

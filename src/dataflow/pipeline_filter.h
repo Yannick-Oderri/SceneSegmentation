@@ -7,31 +7,34 @@
 
 #include <opencv2/opencv.hpp>
 #include "queue_client.h"
+#include <libfreenect2/libfreenect2.hpp>
+
+using ImageFrame = libfreenect2::Frame;
 
 class AbstractPipeFilter {
 public:
-    virtual void start();
+    virtual void start() = 0;
 private:
 };
 
-template<class Data>
+template<class T_in, class T_out>
 class PipeFilter: AbstractPipeFilter {
 protected:
-    QueueClient<Data>* const in_queue_;
-    QueueClient<Data>* const out_queue_;
+    QueueClient<T_in>* const in_queue_;
+    QueueClient<T_out>* const out_queue_;
     bool close_pipe_;
 
 public:
-    PipeFilter(QueueClient<Data>* const in_queue, QueueClient<Data>* const out_queue):
+    PipeFilter(QueueClient<T_in>* const in_queue, QueueClient<T_out>* const out_queue):
             in_queue_(in_queue), out_queue_(out_queue){
         this->close_pipe_ = false;
     }
 
-    inline QueueClient<Data>* getOutQueue() const{
+    inline QueueClient<T_in>* const getOutQueue() {
         return out_queue_;
     }
 
-    inline QueueClient<Data>* getInQueue() const{
+    inline QueueClient<T_out>* const getInQueue() {
         return in_queue_;
     }
 
@@ -40,28 +43,28 @@ public:
 };
 
 template<class Data>
-class ProducerPipeFilter: protected PipeFilter<Data> {
+class ProducerPipeFilter: public PipeFilter<Data, Data> {
 public:
     ProducerPipeFilter(QueueClient<Data>* const out_queue):
-        PipeFilter<Data>(nullptr, out_queue){};
+        PipeFilter<Data, Data>(nullptr, out_queue){};
 
     virtual void start() = 0;
 };
 
 template<class Data>
-class ConsumerPipeFilter: protected PipeFilter<Data> {
+class ConsumerPipeFilter: public PipeFilter<Data, Data> {
 public:
     ConsumerPipeFilter(QueueClient<Data>* const in_queue):
-            PipeFilter<Data>(in_queue, nullptr){};
+            PipeFilter<Data, Data>(in_queue, nullptr){};
 
     virtual void start() = 0;
 };
 
-template<class Data>
-class CudaPipeFilter: protected PipeFilter<Data> {
+template<class T_in, class T_out>
+class CudaPipeFilter: public PipeFilter<T_in, T_out> {
 public:
-    CudaPipeFilter(QueueClient<Data>* const in_queue, QueueClient<Data>* const out_queue):
-        PipeFilter<Data>(in_queue, out_queue){};
+    CudaPipeFilter(QueueClient<T_in>* const in_queue, QueueClient<T_out>* const out_queue):
+        PipeFilter<T_in, T_out>(in_queue, out_queue){};
 
     virtual void start() = 0;
 };

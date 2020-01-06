@@ -10,10 +10,14 @@
 #include <glm/glm.hpp>
 #include <boost/log/trivial.hpp>
 #include "shader.hpp"
+#include <cuda_runtime.h>
 
 #include "gl_edge_disc_filter.h"
+#include "cuda_ransac_kernel.h"
 
-
+int findEnclosingContour(std::vector<std::vector<cv::Point>> &contours, std::vector<cv::Vec4i> &hierarchy, cv::Point2d &point, int idx=-1);
+std::vector<cv::Point>
+performRansacOnCotour(cv::Mat &img, std::vector<std::vector<cv::Point>> &contours, int idx, cv::Point2d &, std::vector<cv::Vec4i> &);
 
 void handler(int sig) {
     void *array[20];
@@ -357,22 +361,33 @@ void GLEdgeDiscFilter::start() {
         // ImageFrame *new_frame = new ImageFrame(frame->width, frame->height, 4*sizeof(float), new_buffer);
         // getOutQueue()->push(new_frame);
 
+        cv::Point2d point(350, 310);
+        int contour_idx = findEnclosingContour(contours, hierarchy, point);
 
         /// Draw contours
         cv::Mat drawing = cv::Mat::zeros( mat.size(), CV_8UC3 );
+        cv::circle(drawing, point, 5, cv::Scalar(10, 242, 32), cv::FILLED);
         for( int i = 0; i< contours.size(); i++ ) {
             double area = cv::contourArea(contours[i]);
             if(area < 300) continue;
-            cv::Scalar color = cv::Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-            drawContours( drawing, contours, i, color, 2, 8, hierarchy, 0, cv::Point() );
-//
-//            cv::imshow("contours", drawing);
-//            cv::waitKey(0);
+
+            cv::Scalar color = cv::Scalar(255,255, 255);
+            drawContours( drawing, contours, i, color, 0.8f, 8, hierarchy, 0, cv::Point() );
+        }
+
+        if(contour_idx >= 0){
+            cv::Scalar color = cv::Scalar( 255, 20, 20); //rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+            drawContours( drawing, contours, contour_idx, color, 3, 8, hierarchy, 0, cv::Point() );
+
+            std::vector<cv::Point> ransac_results = {performRansacOnCotour(t_image, contours, contour_idx, point, hierarchy)};
+            std::vector<std::vector<cv::Point>> results;
+            results.push_back(ransac_results);
+            cv::fillPoly(drawing, results, cv::Scalar(32, 32, 240));
         }
 
         /// Show in a window
 //        cv::namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
-//        cv::imshow( "Contours", drawing );
+        cv::imshow( "Contours", drawing );
         cv:cvWaitKey(1);
 
         free(new_buffer);
@@ -383,29 +398,77 @@ void GLEdgeDiscFilter::start() {
     }
 }
 
+int findEnclosingContour(std::vector<std::vector<cv::Point>> &contours, std::vector<cv::Vec4i> &hierarchy, cv::Point2d &point, int idx){
+    if(idx >= 0){
+        int sub_contour = hierarchy[idx][2];
+        do {
+            auto contour = contours[sub_contour];
+            if(cv::pointPolygonTest(contour, point, false) >= 0) {
+                if (hierarchy[sub_contour][2] >= 0) {
+                    int selected_contour = findEnclosingContour(contours, hierarchy, point, sub_contour);
+                    if (selected_contour < 0) {
+                        return sub_contour;
+                    } else {
+                        return selected_contour;
+                    }
+                }
+                return sub_contour;
+            }
+            sub_contour = hierarchy[sub_contour][0];
+        } while (sub_contour >= 0);
+    }else {
+        for (int i = 0; i < contours.size(); i++) {
+            auto contour = contours[i];
+            if (cv::pointPolygonTest(contour, point, false) >= 0) {
+                if (hierarchy[i][2] >= 0) {
+                    int selected_contour = findEnclosingContour(contours, hierarchy, point, i);
+                    if(selected_contour < 0){
+                        return i;
+                    }else{
+                        return selected_contour;
+                    }
+                }
+                return i;
+                break;
+            }
+            continue;
+        }
+    }
 
-void setlectContourPoints(cv::Mat img, std::vector<std::vector<cv::Point>> contours, int idx, cv::Point){
-    cv::Mat contour_img(img.size(), CV_8UC1);
+    return -1;
+}
 
-    int hierarchy;
-    drawContours(contour_img, contours, idx, cv::Scalar(255), 2, cv::FILLED);
+std::vector<cv::Point>
+performRansacOnCotour(cv::Mat &img, std::vector<std::vector<cv::Point>> &contours, int idx, cv::Point2d &point, std::vector<cv::Vec4i> &hierarchy){
+    cv::Mat contour_img(cv::Size(640, 480), CV_8UC1);
+
+    drawContours( contour_img, contours, idx, cv::Scalar(255), CV_FILLED, 8, hierarchy, 0, cv::Point() );
     int contour_area = cv::contourArea(contours[idx]);
-    int expected_points = std::min((int)(contour_area * 0.4f), 500);
+    int expected_points = std::min((int)(contour_area * 0.4f), 75);
     int num_points = 0;
-    std::vector<cv::Point3d> points(expected_points);
+    std::vector<double3> points(expected_points);
 
     cv::RNG rng(3432764);
 
     auto rect = cv::boundingRect(contours[idx]);
     while(num_points < expected_points){
-        int x = rng.uniform(rect.x, rect.width);
-        int y = rng.uniform(rect.y, rect.height);
-        if(contour_img.at<int>(y+rect.y, x+rect.x) == 255) {
-            points.push_back(cv::Point3d(x, y, img.at<float>(y,x)));
+        int x = rng.uniform(rect.x, rect.x + rect.width);
+        int y = rng.uniform(rect.y, rect.y + rect.height);
+        if(contour_img.at<unsigned char>(y, x) >= 200) {
+            points[num_points].x = x;
+            points[num_points].y = y;
+            points[num_points].z = img.at<float>(y, x) * 1000;
             num_points++;
         }
     }
+    std::vector<double3> ransac_points =  execute_ransac(points);
+    BOOST_LOG_TRIVIAL(info) << "Printing ransac points";
+    std::vector<cv::Point> ransac_results;
+    for(auto p: ransac_points){
+        BOOST_LOG_TRIVIAL(info) << " " << p.x << " " << p.y << " " << p.z;
+        ransac_results.push_back(cv::Point(p.x, p.y));
+    }
 
-
+    return ransac_results;
 
 }

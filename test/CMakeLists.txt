@@ -39,4 +39,5 @@ MACRO(PACKAGE_ADD_TEST TESTNAME)
     SET_TARGET_PROPERTIES(${TESTNAME} PROPERTIES FOLDER tests)
 ENDMACRO()
 
-PACKAGE_ADD_TEST(app_test pipeline_tests.cpp)
+# PACKAGE_ADD_TEST(app_test freenect_filter_test.cpp)
+PACKAGE_ADD_TEST(app_test cuda_sobel_filter_test.cpp)

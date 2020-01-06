@@ -33,6 +33,7 @@ protected:
     typedef std::vector<AbstractPipeFilter> pipeline_filters_;
     
 public:
+    class Builder;
     Pipeline(PipelineID id, AppContext* context);
 
 
@@ -41,5 +42,10 @@ public:
     
 };
 
+class Pipeline::Builder {
+public:
+    Pipeline::Builder* insertFilter(PipeFilterType filter_type);
+    void Build();
+};
 
 #endif //PROJECT_EDGE_PIPELINE_H

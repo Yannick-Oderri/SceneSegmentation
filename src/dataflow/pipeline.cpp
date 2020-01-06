@@ -11,3 +11,11 @@ void Pipeline::AppendFilter(PipeFilterType filter_type) {
     switch (filter_type){
     }
 }
+
+void Pipeline::Builder::Build() {
+
+}
+
+Pipeline::Builder* insertFilter(PipeFilterType fitler_type){
+
+}

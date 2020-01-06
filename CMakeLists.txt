@@ -3,13 +3,28 @@ CMAKE_MINIMUM_REQUIRED(VERSION 3.11)
 # ========================================================
 # = Project Options
 # ========================================================
-OPTION(ENABLE_CUDA "Enable CUDA support" OFF)
+OPTION(ENABLE_CUDA "Enable CUDA support" ON)
 OPTION(ENABLE_OPENGL "Enable OpenGL support" ON)
 OPTION(ENABLE_OPENCV "Enable OpenCV support" ON)
 OPTION(ENABLE_BOOST "Enable Boost support" ON)
-OPTION(ENABLE_FREENECT2 "Enable Kinectv2 Drivers" OFF) # not functional atm
+OPTION(ENABLE_FREENECT2 "Enable Kinectv2 Drivers" ON) # not functional atm
 OPTION(PACKAGE_TESTS "Build the tests" ON)
 OPTION(PACKAGE_RUNTIME "Build runtime files" OFF)
+
+# ========================================================
+# = Project Settings
+# ========================================================
+#ADD_DEFINITIONS(-DWITH_KINECTV2)
+#ADD_DEFINITIONS(-DRESIZE_KINECTV2_FRAME)
+IF(-DWITH_KINECTV2)
+  IF(-DRESIZE_KINECTV2_FRAME)
+    ADD_DEFINITIONS(-DVIEWPORT_WIDTH=640 -DVIEWPORT_HEIGHT=480)
+  ELSE()
+    ADD_DEFINITIONS(-DVIEWPORT_WIDTH=512 -DVIEWPORT_HEIGHT=424)
+  ENDIF()
+ELSE()
+  ADD_DEFINITIONS(-DVIEWPORT_WIDTH=640 -DVIEWPORT_HEIGHT=480 -DRESIZE_KINECTV2_FRAME)
+ENDIF(-DWITH_KINECTV2)
 
 
 # ========================================================
@@ -26,6 +41,7 @@ IF(NOT DEFINED CMAKE_BUILD_TYPE)
   SET(CMAKE_BUILD_TYPE DEBUG CACHE STRING "Choose: RelWithDebInfo Release Debug MinSizeRel None")
 ENDIF()
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -rdynamic")
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -51,12 +67,17 @@ SET(project_edge_SOURCE
         context.cpp
         frame.cpp
         viewer.cpp
+        cuda_sobel_filter.cpp
+        cuda_sobel_filter_kernel.cu
+        cuda_ransac.cu
 )
 SET(project_edge_HEADERS
         app.h
         context.h
         frame.h
         viewer.h
+        cuda_sobel_filter.h
+        cuda_sobel_filter_kernel.h
 )
 
 FUNCTION(PREPEND var prefix)
@@ -74,10 +95,19 @@ PREPEND(project_edge_hdr "${CMAKE_SOURCE_DIR}/src" ${project_edge_HEADERS})
 SET(project_edge_SOURCE_TEST
         dataflow/pipeline.cpp
         dataflow/pipeline_filter.cpp
+        kinect_bridge_producer.cpp
+        cuda_sobel_filter.cpp
+        gl_edge_disc_filter.cpp
+        shader.cpp
+        context.cpp
 )
 SET(project_edge_HEADERS_TEST
         dataflow/pipeline.h
         dataflow/pipeline_filter.h
+        kinect_bridge_producer.h
+        gl_edge_disc_filter.h
+        shader.h
+        cuda_sobel_filter.h
 )
 
 IF(PACKAGE_TESTS)
@@ -85,6 +115,8 @@ IF(PACKAGE_TESTS)
   PREPEND(project_edge_hdr_test "${CMAKE_SOURCE_DIR}/src" ${project_edge_HEADERS_TEST})
 ENDIF()
 
+SET(project_edge_VENDOR_DIR
+      "${CMAKE_CURRENT_SOURCE_DIR}/extern")
 
 SET(project_edge_INCLUDE_DIR
     "${CMAKE_SOURCE_DIR}/include"
@@ -101,6 +133,7 @@ INCLUDE_DIRECTORIES(
 # = Cuda Support
 # ========================================================
 IF(ENABLE_CUDA)
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -g -G")
   find_library(CUDART_LIBRARY cudart ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
 
   INCLUDE_DIRECTORIES(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
@@ -116,23 +149,25 @@ IF(ENABLE_OPENGL)
   set(OpenGL_GL_PREFERENCE "GLVND")
   FIND_PACKAGE(glfw3 REQUIRED)
   FIND_PACKAGE(OpenGL REQUIRED)
-  IF(GLFW3_FOUND AND OPENGL_FOUND)
-    INCLUDE_DIRECTORIES(
-      ${GLFW3_INCLUDE_DIRS}
-      ${flextGL_INCLUDE_DIRS}
-    )
+  ADD_SUBDIRECTORY("${project_edge_VENDOR_DIR}/glad")
+  INCLUDE_DIRECTORIES(
+    ${GLFW3_INCLUDE_DIRS}
+    ${flextGL_INCLUDE_DIRS}
+    ${glad_INCLUDE_DIRS}
+  )
 
-    LIST(APPEND project_edge_DLLS ${GLFW3_DLL})
-    LIST(APPEND project_edge_src
-      viewer.cpp
-      ${flextGL_SOURCES}
-    )
-    LIST(APPEND project_edge_LIBRARIES
-      ${GLFW3_LIBRARIES}
-      ${OPENGL_gl_LIBRARY}
-    )
-    ADD_DEFINITIONS(-DEXAMPLES_WITH_OPENGL_SUPPORT=1)
-  ENDIF()
+  MESSAGE(STATUS "glad libs ${glad_INCLUDE_DIRS}")
+  LIST(APPEND project_edge_DLLS ${GLFW3_DLL})
+  LIST(APPEND project_edge_src
+    ${flextGL_SOURCES}
+  )
+  LIST(APPEND project_edge_LIBRARIES
+    ${GLFW3_LIBRARIES}
+    ${OPENGL_gl_LIBRARY}
+    ${glad_LIBRARIES}
+    glfw
+  )
+  ADD_DEFINITIONS(-DEXAMPLES_WITH_OPENGL_SUPPORT=1)
 ENDIF(ENABLE_OPENGL)
 
 # ========================================================
@@ -169,10 +204,13 @@ ENDIF(ENABLE_BOOST)
 # = Freenect2 Library
 # ========================================================
 IF(ENABLE_FREENECT2)
+  MESSAGE("Finding freenect2")
   FIND_PACKAGE(freenect2
           REQUIRED)
   IF(freenect2_FOUND)
     INCLUDE_DIRECTORIES(${freenect2_INCLUDE_DIR})
+    LIST(APPEND project_edge_LIBRARIES
+            ${freenect2_LIBRARIES})
     LIST(APPEND project_edge_DLLS
             ${freenect2_DLLS}
             )
