@@ -34,16 +34,16 @@ void main()
     vec4 topLeftColor = texture(dmap, topLeftTextureCoordinate);
 
     vec4 resultColor;
-    // resultColor = topLeftColor * convolutionMatrix_x[0][0] + topColor * convolutionMatrix_x[0][1] + topRightColor * convolutionMatrix_x[0][2];
-    resultColor = leftColor * convolutionMatrix_x[1][0] + centerColor * convolutionMatrix_x[1][1] + rightColor * convolutionMatrix_x[1][2];
-    // resultColor += bottomLeftColor * convolutionMatrix_x[2][0] + bottomColor * convolutionMatrix_x[2][1] + bottomRightColor * convolutionMatrix_x[2][2];
+    resultColor += topLeftColor * convolutionMatrix_x[0][0] + topColor * convolutionMatrix_x[0][1] + topRightColor * convolutionMatrix_x[0][2];
+    resultColor += leftColor * convolutionMatrix_x[1][0] + centerColor * convolutionMatrix_x[1][1] + rightColor * convolutionMatrix_x[1][2];
+    resultColor += bottomLeftColor * convolutionMatrix_x[2][0] + bottomColor * convolutionMatrix_x[2][1] + bottomRightColor * convolutionMatrix_x[2][2];
 
     float sobel_vert = resultColor.x;
 
-    // resultColor = topLeftColor * convolutionMatrix_y[0][0] + topColor * convolutionMatrix_y[0][1] + topRightColor * convolutionMatrix_y[0][2];
-    // resultColor = leftColor * convolutionMatrix_y[1][0] + centerColor * convolutionMatrix_y[1][1] + rightColor * convolutionMatrix_y[1][2];
-    // resultColor += bottomLeftColor * convolutionMatrix_y[2][0] + bottomColor * convolutionMatrix_y[2][1] + bottomRightColor * convolutionMatrix_y[2][2];
-    resultColor = topColor * convolutionMatrix_y[0][1] + bottomColor * convolutionMatrix_y[2][1];
+    resultColor += topLeftColor * convolutionMatrix_y[0][0] + topColor * convolutionMatrix_y[0][1] + topRightColor * convolutionMatrix_y[0][2];
+    resultColor += leftColor * convolutionMatrix_y[1][0] + centerColor * convolutionMatrix_y[1][1] + rightColor * convolutionMatrix_y[1][2];
+    resultColor += bottomLeftColor * convolutionMatrix_y[2][0] + bottomColor * convolutionMatrix_y[2][1] + bottomRightColor * convolutionMatrix_y[2][2];
+    resultColor += topColor * convolutionMatrix_y[0][1] + bottomColor * convolutionMatrix_y[2][1];
 
     float sobel_hori = resultColor.x;
     float grad = atan(sobel_hori, sobel_vert);

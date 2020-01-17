@@ -19,7 +19,7 @@ public:
     ProducerPipeFilter(new QueueClient<libfreenect2::Frame*>()){}
 
     void initialize(){
-        std::string file_path = "../../data/depth/test55.png";
+        std::string file_path = "../../data/depth/test0.png";
         cv::Mat flip;
         flip = cv::imread(file_path, -1);
 
@@ -52,7 +52,7 @@ public:
             out_queue_->push(new libfreenect2::Frame(t_image_->height, t_image_->width, sizeof(float), buffer));
             frame_count++;
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(33));
+            std::this_thread::sleep_for(std::chrono::milliseconds(30));
         }
     }
 };

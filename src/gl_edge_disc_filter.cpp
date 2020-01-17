@@ -3,8 +3,10 @@
 //
 
 #include <execinfo.h>
-#include <signal.h>
-#include <opencv2/opencv.hpp>
+#include <csignal.h>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc.hpp>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -66,7 +68,7 @@ void GLEdgeDiscFilter::start() {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
-    GLFWwindow* window = glfwCreateWindow(viewport_width_, viewport_height_, "Shader", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(viewport_width_, viewport_height_, "Shader", nullptr, nullptr);
     if (window == NULL){
         std::cout << "Faineld to create GLFW window" << std::endl;
         glfwTerminate();
@@ -84,7 +86,6 @@ void GLEdgeDiscFilter::start() {
     GLuint err;
 
     Shader blur_shader_1("../../data/shaders/shader_1.vs", "../../data/shaders/bilateral_blur.fs");
-    Shader blur_shader_2("../../data/shaders/shader_1.vs", "../../data/shaders/bilateral_blur.fs");
     Shader median_blur_shader("../../data/shaders/shader_1.vs", "../../data/shaders/median_blur.fs");
     Shader sobel_shader("../../data/shaders/shader_1.vs", "../../data/shaders/sobel.fs");
     Shader shader("../../data/shaders/shader_1.vs", "../../data/shaders/shader_1.fs");
@@ -134,7 +135,7 @@ void GLEdgeDiscFilter::start() {
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
     // position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), nullptr);
     glEnableVertexAttribArray(0);
     // color attribute
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
@@ -182,7 +183,6 @@ void GLEdgeDiscFilter::start() {
     int frameCount = 0;
 
     // transfer texture to  texture
-    cv::RNG rng(12345);
 //    cv::startWindowThread();
     // render loop
     // -----------
@@ -200,7 +200,7 @@ void GLEdgeDiscFilter::start() {
 
         processInput(window);
 
-        BOOST_LOG_TRIVIAL(info) << "Receiving edge discription frame:" << frameCount;
+        // BOOST_LOG_TRIVIAL(info) << "Receiving edge discription frame:" << frameCount;
 /// Calcuate curve Discontinoutiyu
         GLuint textID;
         glGenTextures(1, &textID);
@@ -239,7 +239,7 @@ void GLEdgeDiscFilter::start() {
         glBindTexture(GL_TEXTURE_RECTANGLE, textID);
         shader.use();
         glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
         // second pass -- bilateral filter shader
         glBindFramebuffer(GL_FRAMEBUFFER, blur_shader_1.getFramebuferID());
@@ -250,7 +250,7 @@ void GLEdgeDiscFilter::start() {
         glBindVertexArray(VAO);
         glActiveTexture(GL_TEXTURE0); // TEXTURE0 image location
         glBindTexture(GL_TEXTURE_RECTANGLE, shader.getFramebufferTextureID());
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
         // // third pass -- bilateral filter shader
         // glBindFramebuffer(GL_FRAMEBUFFER, blur_shader_2.getFramebuferID());
@@ -272,7 +272,7 @@ void GLEdgeDiscFilter::start() {
         glBindVertexArray(VAO);
         glActiveTexture(GL_TEXTURE0); // TEXTURE0 image location
         glBindTexture(GL_TEXTURE_RECTANGLE, blur_shader_1.getFramebufferTextureID());
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
         // // // fifth pass -- bilateral filter shader
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -283,11 +283,8 @@ void GLEdgeDiscFilter::start() {
         glBindVertexArray(VAO);
         glActiveTexture(GL_TEXTURE0); // TEXTURE0 image location
         glBindTexture(GL_TEXTURE_RECTANGLE, median_blur_shader.getFramebufferTextureID());
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
-//        glfwSwapBuffers(window);
-        glFlush();
-        glfwPollEvents();
 
 
 //
@@ -308,15 +305,20 @@ void GLEdgeDiscFilter::start() {
         cv::Mat depth_canny;
         cv::Canny(depth_dst, depth_canny, 43.0, 90.0);
 
+
+//        glfwSwapBuffers(window);
+        glFlush();
+        glfwPollEvents();
+
 //        cv::flip(depth_canny, depth_canny, 0);
 //        cv::flip(depth_canny, depth_canny, 1);
-        cv::imshow("Depth Edges", depth_canny);
+//        cv::imshow("Depth Edges", depth_canny);
 //        cv::waitKey(0);
 
 
         unsigned char* new_buffer = (unsigned char*)malloc(frame->width*frame->height*sizeof(int));
         glReadPixels(0, 0, frame->width, frame->height, GL_RGBA, GL_UNSIGNED_BYTE, new_buffer);
-        cv::Mat mat = cv::Mat(viewport_height_, viewport_width_, CV_8UC4, new_buffer);
+       cv::Mat mat = cv::Mat(viewport_height_, viewport_width_, CV_8UC4, new_buffer);
 
         std::vector<cv::Mat> channels(4);
         cv::split(mat, channels);
@@ -329,7 +331,7 @@ void GLEdgeDiscFilter::start() {
         bool done;
         cv::Mat skel(tt_mat.size(), CV_8UC1, cv::Scalar(0));
         cv::Mat temp(tt_mat.size(), CV_8UC1);
-        cv::Mat element = cv::getStructuringElement(cv::MORPH_CROSS, cv::Size(3, 3));
+        cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5));
         do
         {
             cv::morphologyEx(tt_mat, temp, cv::MORPH_OPEN, element);
@@ -343,7 +345,7 @@ void GLEdgeDiscFilter::start() {
             done = (max == 0);
         } while (!done);
 
-        cv::imshow("Mix Edges", skel);
+        // cv::imshow("Mix Edges", skel);
 
 //        free(new_buffer);
 //        new_buffer = (unsigned char*)malloc(frame->width*frame->height*sizeof(int))
@@ -356,12 +358,12 @@ void GLEdgeDiscFilter::start() {
         /// Detect edges using canny
         //Canny( src_gray, canny_output, thresh, thresh*2, 3 );
         /// Find contours
-        threshold(skel, skel, 0, 200, CV_THRESH_BINARY );
-        cv::findContours( skel, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_NONE, cv::Point(0, 0) );
+        threshold(skel, skel, 20, 255, cv::THRESH_BINARY );
+        cv::findContours( skel, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_NONE, cv::Point(0, 0) );
         // ImageFrame *new_frame = new ImageFrame(frame->width, frame->height, 4*sizeof(float), new_buffer);
         // getOutQueue()->push(new_frame);
 
-        cv::Point2d point(350, 310);
+        cv::Point2d point(350, 240);
         int contour_idx = findEnclosingContour(contours, hierarchy, point);
 
         /// Draw contours
@@ -388,10 +390,10 @@ void GLEdgeDiscFilter::start() {
         /// Show in a window
 //        cv::namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
         cv::imshow( "Contours", drawing );
-        cv:cvWaitKey(1);
+        cv::waitKey(1);
 
         free(new_buffer);
-        // delete(frame);
+        delete(frame);
 
         getInQueue()->pop();
         glDeleteTextures(1, &textID);
@@ -431,7 +433,6 @@ int findEnclosingContour(std::vector<std::vector<cv::Point>> &contours, std::vec
                 return i;
                 break;
             }
-            continue;
         }
     }
 
@@ -442,9 +443,9 @@ std::vector<cv::Point>
 performRansacOnCotour(cv::Mat &img, std::vector<std::vector<cv::Point>> &contours, int idx, cv::Point2d &point, std::vector<cv::Vec4i> &hierarchy){
     cv::Mat contour_img(cv::Size(640, 480), CV_8UC1);
 
-    drawContours( contour_img, contours, idx, cv::Scalar(255), CV_FILLED, 8, hierarchy, 0, cv::Point() );
-    int contour_area = cv::contourArea(contours[idx]);
-    int expected_points = std::min((int)(contour_area * 0.4f), 75);
+    drawContours( contour_img, contours, idx, cv::Scalar(255), cv::FILLED, 8, hierarchy, 0, cv::Point() );
+    double contour_area = cv::contourArea(contours[idx]);
+    int expected_points = std::min((int)(contour_area * 0.4f), 150);
     int num_points = 0;
     std::vector<double3> points(expected_points);
 
@@ -462,10 +463,10 @@ performRansacOnCotour(cv::Mat &img, std::vector<std::vector<cv::Point>> &contour
         }
     }
     std::vector<double3> ransac_points =  execute_ransac(points);
-    BOOST_LOG_TRIVIAL(info) << "Printing ransac points";
+    // BOOST_LOG_TRIVIAL(info) << "Printing ransac points";
     std::vector<cv::Point> ransac_results;
     for(auto p: ransac_points){
-        BOOST_LOG_TRIVIAL(info) << " " << p.x << " " << p.y << " " << p.z;
+        // BOOST_LOG_TRIVIAL(info) << " " << p.x << " " << p.y << " " << p.z;
         ransac_results.push_back(cv::Point(p.x, p.y));
     }
 

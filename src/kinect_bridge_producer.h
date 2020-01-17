@@ -36,7 +36,7 @@ public:
     freenect_frames_(),
     serial_number_(""),
     framecount_(0),
-    enable_rgb_(false),
+    enable_rgb_(true),
     enable_depth_(true){};
 
     void initialize();

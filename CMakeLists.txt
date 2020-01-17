@@ -133,7 +133,7 @@ INCLUDE_DIRECTORIES(
 # = Cuda Support
 # ========================================================
 IF(ENABLE_CUDA)
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -g -G")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}")
   find_library(CUDART_LIBRARY cudart ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
 
   INCLUDE_DIRECTORIES(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
@@ -225,7 +225,7 @@ ENDIF(ENABLE_FREENECT2)
 # ========================================================
 IF(PACKAGE_RUNTIME)
   ADD_EXECUTABLE(project_edge
-          ${project_edge_src})
+          ${project_edge_src} src/viewer/gl_camera.cpp src/viewer/gl_camera.h src/viewer/gl_viewport.cpp src/viewer/gl_viewport.h)
   TARGET_COMPILE_FEATURES(project_edge
           PUBLIC cxx_std_14)
   SET_TARGET_PROPERTIES(project_edge

@@ -12,6 +12,7 @@
 #include <boost/log/trivial.hpp>
 #include <libfreenect2/packet_pipeline.h>
 #include <libfreenect2/logger.h>
+#include <GLFW/glfw3.h>
 
 
 void FreenectPipeProducer::initializeFreenectContext() {
@@ -56,27 +57,33 @@ void FreenectPipeProducer::start() {
     libfreenect2::Frame undistorted(512, 424, 4);
     libfreenect2::Frame registered(512, 424, 4);
 /// [registration setup]
-
+    double current_time = 0;
+    double previous_time = 0;
+    bool write_file = false;
     while(this->close_pipe_ == false){
+        current_time = glfwGetTime();
+
         if (!freenect_listener_.waitForNewFrame(freenect_frames_, 10*1000)){
             BOOST_LOG_TRIVIAL(warning) << "Kinect Device Timeout";
         }
 
-        BOOST_LOG_TRIVIAL(info) << "Receiving Kinect V2 Frame:" << framecount_;
+        BOOST_LOG_TRIVIAL(info) << "Receiving Kinect V2 Frame:" << framecount_ << " " << current_time - previous_time;
         libfreenect2::Frame *rgb = freenect_frames_[libfreenect2::Frame::Color];
         libfreenect2::Frame *ir = freenect_frames_[libfreenect2::Frame::Ir];
         libfreenect2::Frame *depth = freenect_frames_[libfreenect2::Frame::Depth];
 
-//        if (enable_rgb_ && enable_depth_){
-///// [registration]
-//            freenect_registration_->apply(rgb, depth, &undistorted, &registered);
-///// [registration]
-//        }
+        if (enable_rgb_ && enable_depth_){
+/// [registration]
+            freenect_registration_->apply(rgb, depth, &undistorted, &registered);
+/// [registration]
+        }
 
 #ifdef RESIZE_KINECTV2_FRAME
         unsigned char* buffer = (unsigned char*)malloc(depth->width*depth->height*sizeof(float));
         memcpy(buffer, depth->data, depth->width*depth->height*sizeof(float));
         cv::Mat resize_mat(depth->height, depth->width, CV_32F, buffer);
+        if(write_file)
+            cv::imwrite("../../data/depth/output.bmp", resize_mat);
         double min_val, max_val;
         cv::minMaxLoc(resize_mat, &min_val, &max_val);
         resize_mat.convertTo(resize_mat, CV_32F, 1.0/max_val, 0);
@@ -91,8 +98,9 @@ void FreenectPipeProducer::start() {
 
 
         this->framecount_++;
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        // std::this_thread::sleep_for(std::chrono::milliseconds(10));
         freenect_listener_.release(freenect_frames_);
+        previous_time = current_time;
     }
 
     this->freenect_dev_->stop();

@@ -52,7 +52,10 @@ void main() {
   t25(10, 14,		6, 7,		10, 12,		6, 10,		6, 17);
   t25(12, 17,		7, 17,		7, 10,		12, 18,		7, 12);
   t24(10, 18,		12, 20,		10, 20,		10, 12);
-  fragColor = vec4(v[12], 1.0);
+  // increase media blur contrast
+  float3 col = v[12];
+  col = 0.1 * (col - 0.5) + 0.5;
+  fragColor = vec4(col, 1.0);
 
 }
 
