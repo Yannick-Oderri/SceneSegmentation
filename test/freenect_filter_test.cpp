@@ -4,8 +4,11 @@
 
 #include <thread>
 #include "gtest/gtest.h"
+#include "gmock/gmock.h>
 #include "kinect_bridge_producer.h"
 #include "simple_viewer_consumer.h"
+
+TEST()
 
 
 TEST(DISABLED_FreenectTest, InitializeFreenect) {
@@ -21,7 +24,9 @@ TEST(DISABLED_FreenectTest, InitializeFreenect) {
 
 TEST(FreenectTest, ConsumeImage) {
     FreenectPipeProducer producer;
-    producer.initializeFreenectContext();
+    producer.initialize();
+
+
 
     SimpleViewerConsumer consumer(producer.getOutQueue());
 

@@ -4,6 +4,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 3.11)
 # = Project Options
 # ========================================================
 OPTION(ENABLE_CUDA "Enable CUDA support" ON)
+OPTION(ENABLE_QT "Enable Qt UI" OFF)
 OPTION(ENABLE_OPENGL "Enable OpenGL support" ON)
 OPTION(ENABLE_OPENCV "Enable OpenCV support" ON)
 OPTION(ENABLE_BOOST "Enable Boost support" ON)
@@ -139,6 +140,17 @@ IF(ENABLE_CUDA)
   INCLUDE_DIRECTORIES(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
   LIST(APPEND project_edge_LIBRARIES
           ${CUDART_LIBRARY})
+ENDIF()
+
+# ========================================================
+# = Qt
+# ========================================================
+IF(ENABLE_QT)
+  SET(CMAKE_AUTOMOC ON)
+  SET(CMAKE_AUTORCC ON)
+  SET(CMAKE_AUTOUIC ON)
+
+  FIND_PACKAGE(Qt5 COMPONENTS Widgets REQUIRED)
 ENDIF()
 
 # ========================================================

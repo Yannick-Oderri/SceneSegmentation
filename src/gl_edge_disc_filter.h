@@ -7,20 +7,37 @@
 
 #include <libfreenect2/libfreenect2.hpp>
 #include "dataflow/pipeline_filter.h"
+#include "frame.h"
+
+using namespace std;
 
 
-class GLEdgeDiscFilter:  public PipeFilter<ImageFrame*, ImageFrame*>{
+/**
+ * Contour Extractor pipeline filter
+ */
+class GLEdgeDiscFilter:  public PipeFilter<FrameElement* const, ContourAttributes* const>{
 private:
     int viewport_width_;
     int viewport_height_;
 
 public:
-    GLEdgeDiscFilter(QueueClient<ImageFrame*>* in_queue):
-    PipeFilter(in_queue, new QueueClient<ImageFrame*>()),
+    /**
+     * Construct GLEdgeDisc
+     * @param in_queue Input from previous pipeline Pipe
+     */
+    GLEdgeDiscFilter(QueueClient<FrameElement*>* in_queue):
+    PipeFilter(in_queue, new QueueClient<ContourAttributes* const>()),
     viewport_width_(VIEWPORT_WIDTH),
     viewport_height_(VIEWPORT_HEIGHT){}
 
+    /**
+     * Initialize Pipeline filter
+     */
     void initialize();
+
+    /**
+     * Execute Pipeline filter thread. Functoin loops until application ends
+     */
     void start();
 };
 

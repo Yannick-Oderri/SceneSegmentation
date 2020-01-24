@@ -10,10 +10,10 @@
 #include <opencv2/opencv.hpp>
 #include <boost/log/trivial.hpp>
 
-class SimpleViewerConsumer: ConsumerPipeFilter<libfreenect2::Frame*> {
+class SimpleViewerConsumer: ConsumerPipeFilter<DepthFrameElement* const> {
 
 public:
-    SimpleViewerConsumer(QueueClient<libfreenect2::Frame*>* const in_queue ):
+    SimpleViewerConsumer(QueueClient<DepthFrameElement* const>* const in_queue ):
     ConsumerPipeFilter(in_queue){
 
     }

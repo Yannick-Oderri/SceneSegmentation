@@ -78,3 +78,21 @@ TEST(PipelineTest, integration_test) {
     filter_thread.join();
     consumer_thread.join();
 }
+
+TEST(PipelineTest, QueueClient_Push) {
+    // Arrange
+    QueueClient<string> qclient;
+
+    EXPECT_EQ(qclient.size(), 0);
+    EXPECT_TRUE(qclient.empty());
+
+    qclient.push("Dogs and cats");
+    EXPECT_EQ(qclient, 1);
+    EXPECT_EQ(qclient.front(), "Dogs and Cats");
+    EXPECT_FALSE(qclient.empty());
+
+    qclient.pop();
+    EXPECT_TRUE(qclient.empty());
+    EXPECT_EQ(qclient.size(), 0);
+
+}

@@ -44,8 +44,6 @@ void FreenectPipeProducer::initializeFreenectContext() {
 }
 
 void FreenectPipeProducer::start() {
-    initialize();
-
     if(!freenect_dev_->startStreams(enable_rgb_, enable_depth_)){
         BOOST_LOG_TRIVIAL(error) << "Failed to start freenect stream";
         return;
@@ -72,30 +70,15 @@ void FreenectPipeProducer::start() {
         libfreenect2::Frame *ir = freenect_frames_[libfreenect2::Frame::Ir];
         libfreenect2::Frame *depth = freenect_frames_[libfreenect2::Frame::Depth];
 
-        if (enable_rgb_ && enable_depth_){
-/// [registration]
-            freenect_registration_->apply(rgb, depth, &undistorted, &registered);
-/// [registration]
-        }
-
-#ifdef RESIZE_KINECTV2_FRAME
-        unsigned char* buffer = (unsigned char*)malloc(depth->width*depth->height*sizeof(float));
-        memcpy(buffer, depth->data, depth->width*depth->height*sizeof(float));
-        cv::Mat resize_mat(depth->height, depth->width, CV_32F, buffer);
-        if(write_file)
-            cv::imwrite("../../data/depth/output.bmp", resize_mat);
-        double min_val, max_val;
-        cv::minMaxLoc(resize_mat, &min_val, &max_val);
-        resize_mat.convertTo(resize_mat, CV_32F, 1.0/max_val, 0);
-        cv::Mat dst;
-        cv::resize(resize_mat, dst, cv::Size(VIEWPORT_WIDTH, VIEWPORT_HEIGHT), 0, 0, cv::INTER_LINEAR);
-        libfreenect2::Frame* new_frame = new libfreenect2::Frame(VIEWPORT_WIDTH, VIEWPORT_HEIGHT, sizeof(float), dst.ptr());
-        out_queue_->push(new_frame);
-#else
-        out_queue_->push(depth);
-#endif
+        DepthFrameElement dframe (
+                depth->width,
+                depth->height,
+                sizeof(float),
+                depth->data,
+                freenect_dev_->getIrCameraParams());
 
 
+        out_queue_->push(dframe);
 
         this->framecount_++;
         // std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -103,6 +86,7 @@ void FreenectPipeProducer::start() {
         previous_time = current_time;
     }
 
+    // End Freenect driver streaming
     this->freenect_dev_->stop();
 }
 

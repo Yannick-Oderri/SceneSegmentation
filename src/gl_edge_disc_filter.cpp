@@ -191,12 +191,12 @@ void GLEdgeDiscFilter::start() {
     {
         glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
         getInQueue()->waitData();
-        ImageFrame* frame = getInQueue()->front();
+        FrameElement* frame_element = getInQueue()->front();
 
         /// Duplicate frame for depth discontinuity
         unsigned char* dd_buffer = (unsigned char*)malloc(viewport_width_*viewport_height_*sizeof(float));
-        memcpy(dd_buffer, frame->data, viewport_width_*viewport_height_*sizeof(float));
-        ImageFrame dd_frame(viewport_width_, viewport_height_, sizeof(float), dd_buffer);
+        memcpy(dd_buffer, frame_element->getDepthFrameData()->getData(), viewport_width_*viewport_height_*sizeof(float));
+        libfreenect2::Frame dd_frame(viewport_width_, viewport_height_, sizeof(float), dd_buffer);
 
         processInput(window);
 
@@ -210,7 +210,7 @@ void GLEdgeDiscFilter::start() {
         glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-        glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_DEPTH_COMPONENT, viewport_width_, viewport_height_, 0, GL_DEPTH_COMPONENT, GL_FLOAT, frame->data);
+        glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_DEPTH_COMPONENT, viewport_width_, viewport_height_, 0, GL_DEPTH_COMPONENT, GL_FLOAT, frame_element->getDepthFrameData()->getData());
         //glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGB, viewport_width_, viewport_height_, 0, GL_RGB, GL_UNSIGNED_BYTE, image.ptr());
         //glGenerateMipmap(GL_TEXTURE_RECTANGLE);
 
@@ -287,7 +287,7 @@ void GLEdgeDiscFilter::start() {
 
 
 
-//
+// Calculate Depth Discontinuity
 
         cv::Mat t_image(viewport_height_, viewport_width_, CV_32F, dd_frame.data);
         double min_val, max_val;
@@ -316,8 +316,8 @@ void GLEdgeDiscFilter::start() {
 //        cv::waitKey(0);
 
 
-        unsigned char* new_buffer = (unsigned char*)malloc(frame->width*frame->height*sizeof(int));
-        glReadPixels(0, 0, frame->width, frame->height, GL_RGBA, GL_UNSIGNED_BYTE, new_buffer);
+        unsigned char* new_buffer = (unsigned char*)malloc(dd_frame.width*dd_frame.height*sizeof(int));
+        glReadPixels(0, 0, dd_frame.height, dd_frame.width, GL_RGBA, GL_UNSIGNED_BYTE, new_buffer);
        cv::Mat mat = cv::Mat(viewport_height_, viewport_width_, CV_8UC4, new_buffer);
 
         std::vector<cv::Mat> channels(4);
@@ -393,9 +393,9 @@ void GLEdgeDiscFilter::start() {
         cv::waitKey(1);
 
         free(new_buffer);
-        delete(frame);
 
         getInQueue()->pop();
+
         glDeleteTextures(1, &textID);
     }
 }

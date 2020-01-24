@@ -9,14 +9,37 @@
 #include <libfreenect2/libfreenect2.hpp>
 #include <opencv2/opencv.hpp>
 #include <boost/log/trivial.hpp>
+#include "frame.h"
 
-class SimpleImageProducer: public ProducerPipeFilter<libfreenect2::Frame*> {
+class SimpleImageProducer: public ProducerPipeFilter<FrameElement* const> {
     libfreenect2::Frame* t_image_;
     cv::Mat image_;
 
+    /** IR camera intrinsic calibration parameters.
+   * Kinect v2 includes factory preset values for these parameters. They are used in depth image decoding, and Registration.
+   */
+    struct IrCameraParams
+    {
+        float fx; ///< Focal length x (pixel)
+        float fy; ///< Focal length y (pixel)
+        float cx; ///< Principal point x (pixel)
+        float cy; ///< Principal point y (pixel)
+        float k1; ///< Radial distortion coefficient, 1st-order
+        float k2; ///< Radial distortion coefficient, 2nd-order
+        float k3; ///< Radial distortion coefficient, 3rd-order
+        float p1; ///< Tangential distortion coefficient
+        float p2; ///< Tangential distortion coefficient
+    };
+
 public:
     SimpleImageProducer():
-    ProducerPipeFilter(new QueueClient<libfreenect2::Frame*>()){}
+    ProducerPipeFilter(new QueueClient<FrameElement* const>()){}
+
+    DepthCameraParams getDepthCameraParams(){
+        DepthCameraParams camera_params;
+
+        return camera_params;
+    }
 
     void initialize(){
         std::string file_path = "../../data/depth/test0.png";
@@ -39,20 +62,27 @@ public:
     void start(){
         int buffer_size = t_image_->width * t_image_->height * sizeof(float);
         int frame_count = 0;
-        while(true){
+        const DepthCameraParams camera_params = this->getDepthCameraParams();
+        while(this->close_pipe_){
             BOOST_LOG_TRIVIAL(info) << "Receiving Simple frame: " << frame_count;
 
             unsigned char* buffer = (unsigned char*)malloc(buffer_size);
             memcpy(buffer, image_.data, buffer_size);
 
-            cv::Mat resize_mat(VIEWPORT_HEIGHT, VIEWPORT_WIDTH, CV_32F, buffer);
-//            cv::imshow("simple_producer", resize_mat);
-//            cv::waitKey(0);
 
-            out_queue_->push(new libfreenect2::Frame(t_image_->height, t_image_->width, sizeof(float), buffer));
+            cv::Mat resize_mat(VIEWPORT_HEIGHT, VIEWPORT_WIDTH, CV_32F, buffer);
+
+            DepthFrameElement* depth_content  = new DepthFrameElement(
+                    t_image_->width,
+                    t_image_->height,
+                    sizeof(float),
+                    reinterpret_cast<const float *const>(buffer),
+                    &camera_params);
+
+            out_queue_->push(new FrameElement(cv::Mat(), *depth_content));
             frame_count++;
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(30));
+            std::this_thread::sleep_for(std::chrono::milliseconds(3000));
         }
     }
 };
