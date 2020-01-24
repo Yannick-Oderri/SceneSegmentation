@@ -8,8 +8,10 @@
 #include <opencv2/opencv.hpp>
 #include "queue_client.h"
 #include <libfreenect2/libfreenect2.hpp>
+#include <libfreenect2/registration.h>
 
 using ImageFrame = libfreenect2::Frame;
+using FrameRegistration = libfreenect2::Registration;
 
 class AbstractPipeFilter {
 public:

@@ -6,6 +6,7 @@
 #define PROJECT_EDGE_KINECT_BRIDGE_PRODUCER_H
 
 /// [headers]
+#include "frame.h"
 #include <libfreenect2/libfreenect2.hpp>
 #include <libfreenect2/frame_listener_impl.h>
 #include <libfreenect2/registration.h>
@@ -13,7 +14,12 @@
 
 #include "dataflow/pipeline_filter.h"
 
-class FreenectPipeProducer: public ProducerPipeFilter<libfreenect2::Frame*> {
+#define KINECT_DEPTH_MAP_WIDTH  512
+#define KINECT_DEPTH_MAP_HEIGHT 424
+
+
+
+class FreenectPipeProducer: public ProducerPipeFilter<DepthFrameElement*> {
 protected:
     libfreenect2::Freenect2 freenect2_;
     libfreenect2::Freenect2Device* freenect_dev_;
@@ -29,7 +35,7 @@ public:
 
     /// Class Contructor
     FreenectPipeProducer():
-    ProducerPipeFilter<libfreenect2::Frame*>(new QueueClient<libfreenect2::Frame*>()),
+    ProducerPipeFilter<DepthFrameElement*>(new QueueClient<DepthFrameElement*>()),
     freenect_listener_(libfreenect2::Frame::Depth | libfreenect2::Frame::Ir),
     freenect_dev_(nullptr),
     freenect_registration_(nullptr),

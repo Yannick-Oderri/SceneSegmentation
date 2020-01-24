@@ -9,7 +9,7 @@
 #include "dataflow/pipeline_filter.h"
 
 
-class GLEdgeDiscFilter:  public PipeFilter<ImageFrame*, ImageFrame*>{
+class GLEdgeDiscFilter:  public PipeFilter<FrameRegistration*, ImageFrame*>{
 private:
     int viewport_width_;
     int viewport_height_;
