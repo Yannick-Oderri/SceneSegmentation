@@ -36,34 +36,32 @@ class DepthFrameElement {
             data_(cpy.data_),
             depth_camera_params_(cpy.depth_camera_params_)
             {}
-
+private:
     float const* const data_;
     int width_;
     int height_;
     int bits_per_channel_;
-    DepthCameraParams const* const depth_camera_params_;
-
-    cv::Point3f getXYZPoint(int r, int c, double& x, double& y, double&z) const {
-        const float bad_point = std::numeric_limits<float>::quiet_NaN();
-        const float cx(depth_camera_params_->cx), cy(depth_camera_params_->cy);
-        const float fx(1/depth_camera_params_->fx), fy(1/depth_camera_params_->fy);
-        float* undistorted_data = (float *)data_;
-        const float depth_val = undistorted_data[512*r+c]/1000.0f; //scaling factor, so that value of 1 is one meter.
-        if (isnan(depth_val) || depth_val <= 0.001)
-        {
-            //depth value is not valid
-            x = y = z = bad_point;
-        }
-        else
-        {
-            x = (c + 0.5 - cx) * fx * depth_val;
-            y = (r + 0.5 - cy) * fy * depth_val;
-            z = depth_val;
-        }
-    }
+//    DepthCameraParams const* const depth_camera_params_;
+    cv::Mat camera_projection_;
 
 };
 
+
+class ContourElement {
+public:
+    class ContourElementFactory;
+private:
+    const std::vector<cv::Point2d> points_;
+    ContourElement(std::vector<cv::Point2d> contour_points):
+            points_(contour_points){}
+
+};
+
+class ContourElement::ContourElementFactory {
+    enum{};
+    std::vector<ContourElement> GenerateContourElements(std::vector<std::vector<cv::Point2d>> contours);
+    ContourElement GenerateContourElement(std::vector<cv::Point2d> contour_points);
+};
 
 
 #endif //PROJECT_EDGE_FRAME_H
