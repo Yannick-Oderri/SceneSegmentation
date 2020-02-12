@@ -127,6 +127,12 @@ public:
             color_frame_element_(color_frame_element),
             depth_frame_element_(depth_frame_element){}
 
+    /// Copy Contructor
+    FrameElement(const FrameElement& cpy):
+    color_frame_element_(cpy.color_frame_element_),
+    depth_frame_element_(cpy.depth_frame_element_){}
+
+
     /**
      * Depth Frame Element
      * @return
@@ -148,10 +154,44 @@ public:
 /**
  * Stores output of ContourExtractor filter
  */
- struct ContourAttributes {
+ class ContourAttributes {
+ public:
+     ContourAttributes(ContourAttributes& rhs):
+     frame_element(rhs.frame_element),
+     contours(rhs.contours){
+
+     }
+
+     /// Constructor
+     ContourAttributes(ColorFrameElement color_data, DepthFrameElement depth_data, vector<vector<cv::Point2d>> contour_data):
+     frame_element(color_data, depth_data),
+     contours(contour_data){}
+
+     /// Copy Constructor
+     ContourAttributes(FrameElement frame_data, vector<vector<cv::Point2d>> contour_data):
+     frame_element(frame_data),
+     contours(contour_data){}
+
      FrameElement frame_element;
      vector<vector<cv::Point2d>> contours;
  };
+
+
+
+ /**
+  * REndearable element to showcase to output renderer
+  *
+  */
+ class RenderableElement {
+ public:
+     RenderableElement(ContourAttributes contour_data):
+     contour_attributes_(contour_data){
+
+     }
+
+     ContourAttributes contour_attributes_;
+ };
+
 
 
 #endif //PROJECT_EDGE_FRAME_H

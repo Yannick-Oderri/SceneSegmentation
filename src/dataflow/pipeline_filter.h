@@ -29,11 +29,11 @@ public:
         this->close_pipe_ = false;
     }
 
-    inline QueueClient<T_in>* const getOutQueue() {
+    inline QueueClient<T_out>* const getOutQueue() {
         return out_queue_;
     }
 
-    inline QueueClient<T_out>* const getInQueue() {
+    inline QueueClient<T_in>* const getInQueue() {
         return in_queue_;
     }
 

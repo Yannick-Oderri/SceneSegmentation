@@ -11,7 +11,7 @@
 #include <boost/log/trivial.hpp>
 #include "frame.h"
 
-class SimpleImageProducer: public ProducerPipeFilter<FrameElement* const> {
+class SimpleImageProducer: public ProducerPipeFilter<FrameElement* > {
     libfreenect2::Frame* t_image_;
     cv::Mat image_;
 
@@ -33,7 +33,7 @@ class SimpleImageProducer: public ProducerPipeFilter<FrameElement* const> {
 
 public:
     SimpleImageProducer():
-    ProducerPipeFilter(new QueueClient<FrameElement* const>()){}
+    ProducerPipeFilter(new QueueClient<FrameElement* >()){}
 
     DepthCameraParams getDepthCameraParams(){
         DepthCameraParams camera_params;

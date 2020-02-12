@@ -12,7 +12,7 @@
 using namespace std;
 
 using Contours = vector<vector<cv::Point>>;
-using Contour = vector<cv::Point>>;
+using Contour = vector<cv::Point>;
 using LineSegments = vector<vector<cv::Line>>;
 
 /**
@@ -31,7 +31,7 @@ public:
      * Constructor
      */
     ContourPolicy(){}
-    virtual void setContourData() = 0;
+    virtual void setContourData(ContourAttributes * const contour_data) = 0;
     virtual void executePolicy() = 0;
 };
 

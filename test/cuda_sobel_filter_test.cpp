@@ -9,6 +9,7 @@
 #include "simple_image_producer.h"
 #include "simple_viewer_consumer.h"
 #include "gl_edge_disc_filter.h"
+#include "contour_processor.h"
 
 TEST(CudaSobelTests, SimpleImageProducerTest) {
     AppContext::Builder builder;
@@ -29,58 +30,13 @@ TEST(CudaSobelTests, SimpleImageProducerTest) {
     GLEdgeDiscFilter edge_filter(producer.getOutQueue());
     edge_filter.initialize();
 
-    SimpleViewerConsumer viewer_consumer(edge_filter.getOutQueue());
+    ContourProcessorPipeFilter contour_processor(edge_filter.getOutQueue(), new LineSegmentContourPolicy());
+    contour_processor.initialize();
 
-    std::thread sobel_thread(&GLEdgeDiscFilter::start, &edge_filter);
-    std::thread viewer_thread(&SimpleViewerConsumer::start, &viewer_consumer);
-
-    producer_tread.join();
-    sobel_thread.join();
-    viewer_thread.join();
-}
-
-TEST(DISABLED_CudaSobelTests, SimpleImageProducerTest) {
-    AppContext::Builder builder;
-    builder.initializeCuda();
-    AppContext* const appContext = builder.Build();
-
-    SimpleImageProducer producer;
-    producer.initialize();
-
-    CudaSobelFilter sobel_filter(producer.getOutQueue());
-    sobel_filter.intialize(appContext->getCudaDevice());
-
-    SimpleViewerConsumer viewer_consumer(sobel_filter.getOutQueue());
-
-
-    std::thread producer_tread(&SimpleImageProducer::start, &producer);
-    std::thread sobel_thread(&CudaSobelFilter::start, &sobel_filter);
-    std::thread viewer_thread(&SimpleViewerConsumer::start, &viewer_consumer);
+    std::thread contour_detector_thread(&GLEdgeDiscFilter::start, &edge_filter);
+    std::thread contour_processor_thread(&ContourProcessorPipeFilter::start, &contour_processor);
 
     producer_tread.join();
-    sobel_thread.join();
-    viewer_thread.join();
-}
-
-TEST(DISABLED_CudaSobelTests, PipelineIntegration) {
-    AppContext::Builder builder;
-    builder.initializeCuda();
-    AppContext* const appContext = builder.Build();
-
-    FreenectPipeProducer producer;
-    producer.initializeFreenectContext();
-
-    CudaSobelFilter sobel_filter(producer.getOutQueue());
-    sobel_filter.intialize(appContext->getCudaDevice());
-
-    SimpleViewerConsumer viewer_consumer(sobel_filter.getOutQueue());
-
-
-    std::thread producer_tread(&FreenectPipeProducer::start, &producer);
-    std::thread sobel_thread(&CudaSobelFilter::start, &sobel_filter);
-    std::thread viewer_thread(&SimpleViewerConsumer::start, &viewer_consumer);
-
-    producer_tread.join();
-    sobel_thread.join();
-    viewer_thread.join();
+    contour_detector_thread.join();
+    contour_processor_thread.join();
 }

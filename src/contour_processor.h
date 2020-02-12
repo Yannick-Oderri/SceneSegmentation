@@ -9,14 +9,15 @@
 #include "pipeline_filter.h"
 #include "frame.h"
 
-class ContourProcessorPipeFilter: public PipeFilter<ContourAttributes* const, ContourAttribute* const> {
+class ContourProcessorPipeFilter: public PipeFilter<ContourAttributes* , RenderableElement*> {
 
 private:
     ContourPolicy* const exec_policy;
 
 public:
-    ContourProcessorPipeFilter(PipeFilter<ContourAttributes* const>* in_queue, ContourPolicy processing_policy):
-            PipeFilter(in_queue, new QueueClient<ContourAttributes* const>()){
+    ContourProcessorPipeFilter(QueueClient<ContourAttributes*>* in_queue, ContourPolicy* const processing_policy):
+            PipeFilter(in_queue, new QueueClient<RenderableElement* >()),
+            exec_policy(processing_policy){
 
     }
 

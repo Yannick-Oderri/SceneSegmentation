@@ -15,7 +15,7 @@ using namespace std;
 /**
  * Contour Extractor pipeline filter
  */
-class GLEdgeDiscFilter:  public PipeFilter<FrameElement* const, ContourAttributes* const>{
+class GLEdgeDiscFilter:  public PipeFilter<FrameElement*, ContourAttributes*>{
 private:
     int viewport_width_;
     int viewport_height_;
@@ -26,7 +26,7 @@ public:
      * @param in_queue Input from previous pipeline Pipe
      */
     GLEdgeDiscFilter(QueueClient<FrameElement*>* in_queue):
-    PipeFilter(in_queue, new QueueClient<ContourAttributes* const>()),
+    PipeFilter(in_queue, new QueueClient<ContourAttributes* >()),
     viewport_width_(VIEWPORT_WIDTH),
     viewport_height_(VIEWPORT_HEIGHT){}
 

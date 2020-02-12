@@ -55,7 +55,7 @@ void GLEdgeDiscFilter::initialize() {
 }
 
 void GLEdgeDiscFilter::start() {
-    signal(SIGABRT, handler);   // install our handler
+    // signal(SIGABRT, handler);   // install our handler
 
     // glfw: intialize
     glfwInit();
@@ -390,11 +390,13 @@ void GLEdgeDiscFilter::start() {
         /// Show in a window
 //        cv::namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
         cv::imshow( "Contours", drawing );
-        cv::waitKey(1);
 
         free(new_buffer);
-
         getInQueue()->pop();
+
+        /// Push Contour data along with frame data to next stage in pipeline
+        ContourAttributes* contour_data = new ContourAttributes(frame_element, contours);
+        getOutQueue()->push(contour_data);
 
         glDeleteTextures(1, &textID);
     }
@@ -418,7 +420,7 @@ int findEnclosingContour(std::vector<std::vector<cv::Point>> &contours, std::vec
             }
             sub_contour = hierarchy[sub_contour][0];
         } while (sub_contour >= 0);
-    }else {
+    }else{
         for (int i = 0; i < contours.size(); i++) {
             auto contour = contours[i];
             if (cv::pointPolygonTest(contour, point, false) >= 0) {
