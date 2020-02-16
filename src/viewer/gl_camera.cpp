@@ -4,25 +4,25 @@
 
 #include "gl_camera.h"
 
-OpenGLCamera::OpenGLCamera(glm::vec3 position, glm::vec3 up, float yaw, float pitch) : Position(position), Front(glm::vec3(0.0f, 0.0f, -1.0f)), WorldUp(up), Yaw(yaw),Pitch(pitch), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM)
+GLCamera::GLCamera(glm::vec3 position, glm::vec3 up, float yaw, float pitch) : Position(position), Front(glm::vec3(0.0f, 0.0f, -1.0f)), WorldUp(up), Yaw(yaw),Pitch(pitch), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM)
 {
     updateCameraVectors();
 }
 
-OpenGLCamera::OpenGLCamera(const OpenGLCamera& camera) : Position(camera.Position), Front(camera.Front), WorldUp(camera.WorldUp), Yaw(camera.Yaw),Pitch(camera.Pitch), MovementSpeed(camera.MovementSpeed), MouseSensitivity(camera.MouseSensitivity), Zoom(camera.Zoom) {
+GLCamera::GLCamera(const GLCamera& camera) : Position(camera.Position), Front(camera.Front), WorldUp(camera.WorldUp), Yaw(camera.Yaw),Pitch(camera.Pitch), MovementSpeed(camera.MovementSpeed), MouseSensitivity(camera.MouseSensitivity), Zoom(camera.Zoom) {
     updateCameraVectors();
 }
 
-OpenGLCamera::~OpenGLCamera(void) {
+GLCamera::~GLCamera(void) {
 
 }
 
-glm::mat4 OpenGLCamera::GetViewMatrix() const
+glm::mat4 GLCamera::GetViewMatrix() const
 {
     return glm::lookAt(Position, Position + Front, Up);
 }
 
-void OpenGLCamera::ProcessKeyboard(Camera_Movement direction, float deltaTime)
+void GLCamera::ProcessKeyboard(Camera_Movement direction, float deltaTime)
 {
     float velocity = MovementSpeed * deltaTime;
     if (direction == Camera_Movement::FORWARD)
@@ -41,7 +41,7 @@ void OpenGLCamera::ProcessKeyboard(Camera_Movement direction, float deltaTime)
     printPos();
 }
 
-void OpenGLCamera::ProcessMouseMovement(float xoffset, float yoffset, bool constrainPitch)
+void GLCamera::ProcessMouseMovement(float xoffset, float yoffset, bool constrainPitch)
 {
     xoffset *= MouseSensitivity;
     yoffset *= MouseSensitivity;
@@ -57,7 +57,7 @@ void OpenGLCamera::ProcessMouseMovement(float xoffset, float yoffset, bool const
     updateCameraVectors();
 }
 
-void OpenGLCamera::ProcessMouseScroll(float yoffset)
+void GLCamera::ProcessMouseScroll(float yoffset)
 {
     if (Zoom >= 1.0f && Zoom <= 45.0f)
         Zoom -= yoffset;
@@ -67,7 +67,7 @@ void OpenGLCamera::ProcessMouseScroll(float yoffset)
         Zoom = 45.0f;
 }
 
-void OpenGLCamera::updateCameraVectors()
+void GLCamera::updateCameraVectors()
 {
     glm::vec3 front;
     front.x = cos(glm::radians(Yaw)) * cos(glm::radians(Pitch));
@@ -79,7 +79,7 @@ void OpenGLCamera::updateCameraVectors()
     Up    = glm::normalize(glm::cross(Right, Front));
 }
 
-void OpenGLCamera::printPos() const {
+void GLCamera::printPos() const {
     std::cout << "pos: " << Position.x << "," << Position.y  << "," << Position.z << std::endl;
     std::cout << "front: " << Front.x << "," << Front.y  << "," << Front.z << std::endl;
     std::cout << "up: " << WorldUp.x << "," << WorldUp.y  << "," << WorldUp.z << std::endl;

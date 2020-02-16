@@ -4,16 +4,19 @@
 
 #include "gl_viewport.h"
 
-GLViewport::GLViewport(void):cam_render_texture_(-1),
-                                 window_width_(800),
-                                 window_height_(600),
-                                 first_mouse_(true),
-                                 last_x_(window_width_/2.0),
-                                 last_y_(window_height_/2.0f),
-                                 delta_time_(0),
-                                 show_stereo_camera_(false)
+GLViewport::GLViewport(AppContext& app_context):
+        app_context_(&app_context),
+        cam_render_texture_(-1),
+        first_mouse_(true),
+        last_x_(app_context_->getWindowWidth()/2.0),
+        last_y_(app_context_->getWindowHeight()/2.0f),
+        delta_time_(0),
+        show_stereo_camera_(false),
+        window_width_(app_context.getWindowWidth()),
+        window_height_(app_context.getWindowHeight()),
+        window_(app_context.getGLContext())
 {
-    CreateWindow();
+    initialize(app_context);
     CreateGeometries();
 }
 
@@ -23,34 +26,10 @@ GLViewport::~GLViewport(void)
 }
 
 
-int GLViewport::CreateWindow() {
-    glfwInit();
-    glfwWindowHint( GLFW_CONTEXT_VERSION_MAJOR, 3 );
-    glfwWindowHint( GLFW_CONTEXT_VERSION_MINOR, 3 );
-    glfwWindowHint( GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE );
-    glfwWindowHint( GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE );
-    glfwWindowHint( GLFW_RESIZABLE, GL_FALSE );
-    window_ = glfwCreateWindow( window_width_, window_height_, "stereo visualization", nullptr, nullptr );
-    if ( nullptr == window_ )
-    {
-        std::cout << "Failed to create GLFW window" << std::endl;
-        glfwTerminate( );
-        return EXIT_FAILURE;
-    }
-    glfwMakeContextCurrent( window_ );
-    glewExperimental = GL_TRUE;
-    if ( GLEW_OK != glewInit( ) )
-    {
-        std::cout << "Failed to initialize GLEW" << std::endl;
-        return EXIT_FAILURE;
-    }
-    int screen_width, screen_height;
-    glfwGetFramebufferSize( window_, &screen_width, &screen_height );
-    glViewport( 0, 0, screen_width, screen_height );
-    glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+int GLViewport::initialize(AppContext& app_context) {
 
-    glfwSetWindowUserPointer(window_, this);
-    glfwSetCursorPosCallback(window_,
+    glfwSetWindowUserPointer(app_context.getGLContext(), this);
+    glfwSetCursorPosCallback(app_context.getGLContext(),
                              +[]( GLFWwindow* window, double xpos, double ypos )
                              {
                                  static_cast<GLViewport*>(glfwGetWindowUserPointer(window))->on_mouse(window,xpos,ypos);
@@ -58,28 +37,26 @@ int GLViewport::CreateWindow() {
     );
 
 
-    glfwSetFramebufferSizeCallback(window_,
+    glfwSetFramebufferSizeCallback(app_context.getGLContext(),
                                    +[]( GLFWwindow* window, int width, int height )
                                    {
-                                       static_cast<GLViewer*>(glfwGetWindowUserPointer(window))->on_window_resize(window, width, height);
+                                       static_cast<GLViewport*>(glfwGetWindowUserPointer(window))->on_window_resize(window, width, height);
                                    }
     );
 
-    glfwSetScrollCallback(window_,
+    glfwSetScrollCallback(app_context.getGLContext(),
                           +[]( GLFWwindow* window, double xoffset, double yoffset )
                           {
-                              static_cast<GLViewer*>(glfwGetWindowUserPointer(window))->on_scroll(window,xoffset,yoffset);
+                              static_cast<GLViewport*>(glfwGetWindowUserPointer(window))->on_scroll(window,xoffset,yoffset);
                           }
     );
 
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_FRONT);
     return 0;
 }
 
 int GLViewport::CreateGeometries() {
 
-    camera_ = std::unique_ptr<OpenGLCamera>(new OpenGLCamera(glm::vec3(-0.444255,0.29527,-0.218251)));
+    camera_ = std::unique_ptr<GLCamera>(new GLCamera(glm::vec3(-0.444255,0.29527,-0.218251)));
 
     // create opencv render rectangle
     float quad_vertices[] = {
@@ -113,7 +90,7 @@ int GLViewport::CreateGeometries() {
     glEnableVertexAttribArray(2);
     glBindBuffer( GL_ARRAY_BUFFER, 0 );
     glBindVertexArray( 0 );
-    cam_render_shader_.init("camera_render.vs","camera_render.fs");
+    cam_render_shader_ = app_context_->getResMgr()->loadShader("camera_render.vs","camera_render.fs");
 
     // create point cloud
     glGenVertexArrays(1, &point_cloud_vao_);
@@ -126,7 +103,7 @@ int GLViewport::CreateGeometries() {
     glEnableVertexAttribArray(1);
     glBindBuffer( GL_ARRAY_BUFFER, 0 );
     glBindVertexArray( 0 );
-    point_cloud_shader_.init("point_cloud.vs","point_cloud.fs");
+    point_cloud_shader_ = app_context_->getResMgr()->loadShader("point_cloud.vs","point_cloud.fs");
     return 0;
 }
 

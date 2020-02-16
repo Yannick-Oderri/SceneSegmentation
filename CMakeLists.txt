@@ -4,13 +4,14 @@ CMAKE_MINIMUM_REQUIRED(VERSION 3.11)
 # = Project Options
 # ========================================================
 OPTION(ENABLE_CUDA "Enable CUDA support" ON)
+OPTION(ENABLE_IMGUI "Enable Dear IMGUI support" ON)
 OPTION(ENABLE_QT "Enable Qt UI" OFF)
 OPTION(ENABLE_OPENGL "Enable OpenGL support" ON)
 OPTION(ENABLE_OPENCV "Enable OpenCV support" ON)
 OPTION(ENABLE_BOOST "Enable Boost support" ON)
 OPTION(ENABLE_FREENECT2 "Enable Kinectv2 Drivers" ON) # not functional atm
-OPTION(PACKAGE_TESTS "Build the tests" ON)
-OPTION(PACKAGE_RUNTIME "Build runtime files" OFF)
+OPTION(PACKAGE_TESTS "Build the tests" OFF)
+OPTION(PACKAGE_RUNTIME "Build runtime files" ON)
 
 # ========================================================
 # = Project Settings
@@ -65,12 +66,15 @@ ENDIF()
 # ========================================================
 SET(project_edge_SOURCE
         app.cpp
-        context.cpp
-        frame.cpp
-        viewer.cpp
-        cuda_sobel_filter.cpp
-        cuda_sobel_filter_kernel.cu
-        cuda_ransac.cu
+        context/context.cpp
+        context/context_factory.cpp
+        res/resource_mgr.cpp
+        viewer/gl_viewport.cpp
+        viewer/gl_camera.cpp
+        #frame.cpp
+        #cuda_sobel_filter.cpp
+        #cuda_sobel_filter_kernel.cu
+        #cuda_ransac.cu
 )
 SET(project_edge_HEADERS
         app.h
@@ -154,11 +158,29 @@ IF(ENABLE_QT)
 ENDIF()
 
 # ========================================================
+# = Dear IMGUI
+# ========================================================
+IF(ENABLE_IMGUI)
+  INCLUDE_DIRECTORIES("${project_edge_VENDOR_DIR}/imgui")
+  INCLUDE_DIRECTORIES("${project_edge_VENDOR_DIR}/imgui/examples")
+  SET(imgui_src
+          "${project_edge_VENDOR_DIR}/imgui/imgui.cpp"
+          "${project_edge_VENDOR_DIR}/imgui/examples/imgui_impl_opengl3.cpp"
+          "${project_edge_VENDOR_DIR}/imgui/examples/imgui_impl_glfw.cpp")
+  LIST(APPEND project_edge_src ${imgui_src})
+ENDIF()
+
+# ========================================================
 # = OpenGL Library
 # ========================================================
 IF(ENABLE_OPENGL)
   # Prefer OpenGLX Over Legacy
   set(OpenGL_GL_PREFERENCE "GLVND")
+  FIND_PACKAGE(GLEW REQUIRED)
+  IF(NOT ${GLEW_FOUND})
+    MESSAGE(ERROR "Failed to find GLEW package.")
+  ENDIF()
+
   FIND_PACKAGE(glfw3 REQUIRED)
   FIND_PACKAGE(OpenGL REQUIRED)
   ADD_SUBDIRECTORY("${project_edge_VENDOR_DIR}/glad")
@@ -166,6 +188,7 @@ IF(ENABLE_OPENGL)
     ${GLFW3_INCLUDE_DIRS}
     ${flextGL_INCLUDE_DIRS}
     ${glad_INCLUDE_DIRS}
+    ${GLEW_INCLUDE_DIRS}
   )
 
   MESSAGE(STATUS "glad libs ${glad_INCLUDE_DIRS}")
@@ -177,6 +200,7 @@ IF(ENABLE_OPENGL)
     ${GLFW3_LIBRARIES}
     ${OPENGL_gl_LIBRARY}
     ${glad_LIBRARIES}
+    ${GLEW_LIBRARIES}
     glfw
   )
   ADD_DEFINITIONS(-DEXAMPLES_WITH_OPENGL_SUPPORT=1)
@@ -237,7 +261,7 @@ ENDIF(ENABLE_FREENECT2)
 # ========================================================
 IF(PACKAGE_RUNTIME)
   ADD_EXECUTABLE(project_edge
-          ${project_edge_src} src/viewer/gl_camera.cpp src/viewer/gl_camera.h src/viewer/gl_viewport.cpp src/viewer/gl_viewport.h)
+          ${project_edge_src})
   TARGET_COMPILE_FEATURES(project_edge
           PUBLIC cxx_std_14)
   SET_TARGET_PROPERTIES(project_edge
