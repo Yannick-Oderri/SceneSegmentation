@@ -71,6 +71,7 @@ SET(project_edge_SOURCE
         res/resource_mgr.cpp
         viewer/gl_viewport.cpp
         viewer/gl_camera.cpp
+        shader.cpp
         #frame.cpp
         #cuda_sobel_filter.cpp
         #cuda_sobel_filter_kernel.cu
@@ -165,9 +166,12 @@ IF(ENABLE_IMGUI)
   INCLUDE_DIRECTORIES("${project_edge_VENDOR_DIR}/imgui/examples")
   SET(imgui_src
           "${project_edge_VENDOR_DIR}/imgui/imgui.cpp"
+          "${project_edge_VENDOR_DIR}/imgui/imgui_widgets.cpp"
+          "${project_edge_VENDOR_DIR}/imgui/imgui_draw.cpp"
           "${project_edge_VENDOR_DIR}/imgui/examples/imgui_impl_opengl3.cpp"
           "${project_edge_VENDOR_DIR}/imgui/examples/imgui_impl_glfw.cpp")
   LIST(APPEND project_edge_src ${imgui_src})
+  MESSAGE(STATUS "Including Dear imgui ${project_edge_src}")
 ENDIF()
 
 # ========================================================
@@ -201,6 +205,7 @@ IF(ENABLE_OPENGL)
     ${OPENGL_gl_LIBRARY}
     ${glad_LIBRARIES}
     ${GLEW_LIBRARIES}
+      OpenGL::GL
     glfw
   )
   ADD_DEFINITIONS(-DEXAMPLES_WITH_OPENGL_SUPPORT=1)
