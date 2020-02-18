@@ -89,7 +89,7 @@ int AppContextBuilder::initializeMainWindow() {
     int screen_width, screen_height;
     glfwGetFramebufferSize( window_, &screen_width, &screen_height );
     glViewport( 0, 0, screen_width, screen_height );
-    glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 
     glEnable(GL_CULL_FACE);
     glCullFace(GL_FRONT);

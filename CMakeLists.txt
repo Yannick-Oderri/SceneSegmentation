@@ -72,10 +72,9 @@ SET(project_edge_SOURCE
         viewer/gl_viewport.cpp
         viewer/gl_camera.cpp
         shader.cpp
-        #frame.cpp
-        #cuda_sobel_filter.cpp
-        #cuda_sobel_filter_kernel.cu
-        #cuda_ransac.cu
+
+        dataflow/pipeline.cpp
+        dataflow/pipeline_filter.cpp
 )
 SET(project_edge_HEADERS
         app.h

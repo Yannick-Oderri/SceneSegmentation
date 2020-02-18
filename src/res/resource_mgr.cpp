@@ -14,6 +14,8 @@ Shader ResMgr::loadShader(string vs, string fs) {
 
     string vs_path = shader_dir + "/" + vs;
     string fs_path = shader_dir + "/" + fs;
+    BOOST_LOG_TRIVIAL(info) << "Loading Vertex Shader: " << vs_path;
+    BOOST_LOG_TRIVIAL(info) << "Loading Fragment Shader: " << fs_path;
 
     Shader shdr;
     shdr.init(vs_path, fs_path);

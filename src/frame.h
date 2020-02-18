@@ -34,7 +34,7 @@ public:
      * @param camera_params
      */
     DepthFrameElement(int width, int height, int channel_size,
-            float const* const data,
+            const float* data,
             const DepthCameraParams * camera_params):
             width_(width),
             height_(height),
@@ -72,13 +72,22 @@ public:
         return mat;
     }
 
-private:
-    /// Private Fields
-    float const* const data_; // Frame Data element
-    int width_; // Frame width
-    int height_; // frame height
-    int bits_per_channel_; // bits per pixel
-    DepthCameraParams const* depth_camera_params_; // camera parameters
+    /**
+     * REturn Depth frame width
+     * @return
+     */
+    int getWidth(){
+        return this->width_;
+    }
+
+    /**
+     * Return Depth frame height
+     * @return
+     */
+    int getHeight(){
+        return this->height_;
+    }
+
 
     /**
      * Provides the XYZ point cloud element for provide row and column coordinate
@@ -89,26 +98,35 @@ private:
      * @param z Output world coordinate
      * @return  XYZ World Coordinate
      */
-    cv::Point3f getXYZPoint(int r, int c, double& x, double& y, double&z) const {
+    inline cv::Point3f getXYZPoint(int r, int c, double& x, double& y, double&z) const {
         const float bad_point = std::numeric_limits<float>::quiet_NaN();
         const float cx(depth_camera_params_->cx), cy(depth_camera_params_->cy);
         const float fx(1/depth_camera_params_->fx), fy(1/depth_camera_params_->fy);
         float* undistorted_data = (float *)data_;
-        const float depth_val = undistorted_data[512*r+c]/1000.0f; //scaling factor, so that value of 1 is one meter.
+        const float depth_val = undistorted_data[this->height_*r+c]/(1000.0f * 500); //scaling factor, so that value of 1 is one meter.
         if (isnan(depth_val) || depth_val <= 0.001)
         {
             //depth value is not valid
-            x = y = z = bad_point;
+            x = y = z = bad_point  ;
         }
         else
         {
-            x = (c + 0.5 - cx) * fx * depth_val;
-            y = (r + 0.5 - cy) * fy * depth_val;
+            x = (c - cx) * fx * depth_val;
+            y = (r - cy) * fy * depth_val;
             z = depth_val;
         }
 
         return cv::Point3f(x, y, z);
     }
+
+private:
+    /// Private Fields
+    float const* const data_; // Frame Data element
+    int width_; // Frame width
+    int height_; // frame height
+    int bits_per_channel_; // bits per pixel
+    DepthCameraParams const* depth_camera_params_; // camera parameters
+
 
 };
 

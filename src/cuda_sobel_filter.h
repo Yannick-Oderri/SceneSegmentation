@@ -8,7 +8,7 @@
 #include <cuda_runtime.h>
 #include <libfreenect2/frame_listener.hpp>
 
-#include "context.h"
+#include "context/context.h"
 #include "dataflow/pipeline_filter.h"
 
 class CudaSobelFilter: public PipeFilter<libfreenect2::Frame*, libfreenect2::Frame*>{

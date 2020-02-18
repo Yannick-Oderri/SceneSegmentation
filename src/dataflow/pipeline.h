@@ -9,7 +9,7 @@
 #include <stack>
 #include <mutex>
 
-#include "context.h"
+#include "context/context.h"
 #include "pipeline_filter.h"
 
 using PipelineID = unsigned int;
