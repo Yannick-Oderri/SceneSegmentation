@@ -98,12 +98,12 @@ public:
      * @param z Output world coordinate
      * @return  XYZ World Coordinate
      */
-    inline cv::Point3f getXYZPoint(int r, int c, double& x, double& y, double&z) const {
+    inline cv::Point3f getXYZPoint(int r, int c, float& x, float& y, float&z) const {
         const float bad_point = std::numeric_limits<float>::quiet_NaN();
         const float cx(depth_camera_params_->cx), cy(depth_camera_params_->cy);
         const float fx(1/depth_camera_params_->fx), fy(1/depth_camera_params_->fy);
         float* undistorted_data = (float *)data_;
-        const float depth_val = undistorted_data[this->height_*r+c]/(1000.0f * 500); //scaling factor, so that value of 1 is one meter.
+        const float depth_val = undistorted_data[this->height_*r+c]/(400.0f); //scaling factor, so that value of 1 is one meter.
         if (isnan(depth_val) || depth_val <= 0.001)
         {
             //depth value is not valid

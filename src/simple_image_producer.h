@@ -38,8 +38,8 @@ public:
     DepthCameraParams getDepthCameraParams(){
         DepthCameraParams camera_params;
 
-        camera_params.fx = 160;
-        camera_params.fy = 180;
+        camera_params.fx = 550;
+        camera_params.fy = 550;
         camera_params.cx = 640 / 2;
         camera_params.cy = 480 / 2;
 
@@ -47,7 +47,7 @@ public:
     }
 
     void initialize(){
-        std::string file_path = "../data/depth/blender_1.png";
+        std::string file_path = "../data/depth/test55.png";
         cv::Mat img;
         img = cv::imread(file_path, -1);
 
@@ -58,7 +58,7 @@ public:
 
         img.convertTo(image_, CV_32F, 1.0, 0);
 
-        t_image_ = new libfreenect2::Frame(image_.rows, image_.cols, sizeof(float), image_.ptr());
+        t_image_ = new libfreenect2::Frame(image_.cols, image_.rows, sizeof(float), image_.ptr());
     }
 
     void start(){
@@ -75,8 +75,8 @@ public:
             cv::Mat resize_mat(VIEWPORT_HEIGHT, VIEWPORT_WIDTH, CV_32F, buffer);
 
             DepthFrameElement* depth_content  = new DepthFrameElement(
-                    t_image_->height,
                     t_image_->width,
+                    t_image_->height,
                     sizeof(float),
                     (float*)buffer,
                     &camera_params);
@@ -84,7 +84,7 @@ public:
             out_queue_->push(new FrameElement(cv::Mat(), *depth_content));
             frame_count++;
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(30));
+            std::this_thread::sleep_for(std::chrono::milliseconds(33));
         }
     }
 

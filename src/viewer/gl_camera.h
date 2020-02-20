@@ -26,14 +26,14 @@ enum class Camera_Movement {
 
 const float YAW         = -90.0f;
 const float PITCH       =  0.0f;
-const float SPEED       =  0.5f;
+const float SPEED       =  20.5f;
 const float SENSITIVITY =  0.05f;
 const float ZOOM        =  45.0f;
 
 class GLCamera {
 
 public:
-    GLCamera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f),
+    GLCamera(glm::vec3 position = glm::vec3(0, 0, 0),
             glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f),
     float yaw = YAW,
     float pitch = PITCH);

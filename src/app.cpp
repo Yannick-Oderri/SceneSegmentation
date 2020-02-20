@@ -31,10 +31,10 @@ int main(int argc, char **argv){
 
     bool end_loop = false;
     int dims[3] = {480, 640,3};
-    vector<cv::Point3d> points(480*640);
+    vector<cv::Point3f> points(480*640);
     cv::Mat xyz(480, 640, CV_32FC3);
 
-    cv::Mat rgb = cv::imread("../data/depth/ctest0.png", -1);
+    cv::Mat rgb = cv::imread("../data/depth/ctest55.png", -1);
 
     while(end_loop == false){
         producer.getOutQueue()->waitData();
@@ -44,11 +44,10 @@ int main(int argc, char **argv){
 
         for (int r = 0; r < depth_data.rows; r++){
             for (int c = 0; c < depth_data.cols; c++){
-                double x, y, z;
+                float x, y, z;
                 frame_element->getDepthFrameData()->getXYZPoint(r, c, x, y, z);
-                points[r*depth_data.rows+c] = cv::Point3d(x, y, z);
-                //cv::Point3d point(x,y,z);
-                //xyz.at<cv::Point3d>(r, c) = point;
+                points[r*depth_data.rows+c] = cv::Point3f(x, y, z);
+                // xyz.at<cv::Point3d>(r, c) = point;
             }
         }
         producer.getOutQueue()->pop();
