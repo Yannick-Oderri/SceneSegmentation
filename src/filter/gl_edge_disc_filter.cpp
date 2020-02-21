@@ -2,20 +2,25 @@
 // Created by ynki9 on 12/31/19.
 //
 
+#define GLFW_INCLUDE_NONE
+
+
 #include <execinfo.h>
-#include <csignal.h>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc.hpp>
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
+
 #include <boost/log/trivial.hpp>
 #include "shader.hpp"
 #include <cuda_runtime.h>
 
 #include "gl_edge_disc_filter.h"
 #include "cuda_ransac_kernel.h"
+
 
 int findEnclosingContour(std::vector<std::vector<cv::Point>> &contours, std::vector<cv::Vec4i> &hierarchy, cv::Point2d &point, int idx=-1);
 std::vector<cv::Point>
@@ -54,6 +59,10 @@ void GLEdgeDiscFilter::initialize() {
 
 }
 
+void GLEdgeDiscFilter::setParentContext(GLFWwindow* parent_window){
+    this->parent_window_ = parent_window;
+}
+
 void GLEdgeDiscFilter::start() {
     // signal(SIGABRT, handler);   // install our handler
 
@@ -67,8 +76,9 @@ void GLEdgeDiscFilter::start() {
 #ifdef __APPLE__
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
-
-    GLFWwindow* window = glfwCreateWindow(viewport_width_, viewport_height_, "Shader", nullptr, nullptr);
+    /// Enable Offscreen rendering
+    // glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+    GLFWwindow* window = glfwCreateWindow(viewport_width_, viewport_height_, "Shader", nullptr, this->parent_window_);
     if (window == NULL){
         std::cout << "Faineld to create GLFW window" << std::endl;
         glfwTerminate();
@@ -85,10 +95,10 @@ void GLEdgeDiscFilter::start() {
     }
     GLuint err;
 
-    Shader blur_shader_1("../../data/shaders/shader_1.vs", "../../data/shaders/bilateral_blur.fs");
-    Shader median_blur_shader("../../data/shaders/shader_1.vs", "../../data/shaders/median_blur.fs");
-    Shader sobel_shader("../../data/shaders/shader_1.vs", "../../data/shaders/sobel.fs");
-    Shader shader("../../data/shaders/shader_1.vs", "../../data/shaders/shader_1.fs");
+    Shader blur_shader_1("../data/shaders/shader_1.vs", "../data/shaders/bilateral_blur.fs");
+    Shader median_blur_shader("../data/shaders/shader_1.vs", "../data/shaders/median_blur.fs");
+    Shader sobel_shader("../data/shaders/shader_1.vs", "../data/shaders/sobel.fs");
+    Shader shader("../data/shaders/shader_1.vs", "../data/shaders/shader_1.fs");
     shader.enableFramebuffer(true);
     blur_shader_1.enableFramebuffer(true);
     //blur_shader_2.enableFramebuffer(true);
@@ -331,7 +341,7 @@ void GLEdgeDiscFilter::start() {
         bool done;
         cv::Mat skel(tt_mat.size(), CV_8UC1, cv::Scalar(0));
         cv::Mat temp(tt_mat.size(), CV_8UC1);
-        cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5));
+        cv::Mat element = cv::getStructuringElement(cv::MORPH_CROSS, cv::Size(3, 3));
         do
         {
             cv::morphologyEx(tt_mat, temp, cv::MORPH_OPEN, element);
@@ -351,7 +361,7 @@ void GLEdgeDiscFilter::start() {
 //        new_buffer = (unsigned char*)malloc(frame->width*frame->height*sizeof(int))
 //        cv::imshow("Edge Data", mat);
 //        cv::waitKey(0);
-
+        std::vector<std::vector<cv::Point> > t_contours;
         std::vector<std::vector<cv::Point> > contours;
         std::vector<cv::Vec4i> hierarchy;
 
@@ -359,25 +369,26 @@ void GLEdgeDiscFilter::start() {
         //Canny( src_gray, canny_output, thresh, thresh*2, 3 );
         /// Find contours
         threshold(skel, skel, 20, 255, cv::THRESH_BINARY );
-        cv::findContours( skel, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_NONE, cv::Point(0, 0) );
+        cv::findContours( skel, t_contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_NONE, cv::Point(0, 0) );
         // ImageFrame *new_frame = new ImageFrame(frame->width, frame->height, 4*sizeof(float), new_buffer);
         // getOutQueue()->push(new_frame);
 
         cv::Point2d point(350, 240);
-        int contour_idx = findEnclosingContour(contours, hierarchy, point);
+        // int contour_idx = findEnclosingContour(t_contours, hierarchy, point);
 
         /// Draw contours
         cv::Mat drawing = cv::Mat::zeros( mat.size(), CV_8UC3 );
         cv::circle(drawing, point, 5, cv::Scalar(10, 242, 32), cv::FILLED);
-        for( int i = 0; i< contours.size(); i++ ) {
-            double area = cv::contourArea(contours[i]);
-            if(area < 300) continue;
 
+        for( int i = 0; i< t_contours.size(); i++ ) {
+            double area = cv::contourArea(t_contours[i]);
+            if(area < 500) continue;
+            contours.push_back(t_contours[i]);
             cv::Scalar color = cv::Scalar(255,255, 255);
-            drawContours( drawing, contours, i, color, 0.8f, 8, hierarchy, 0, cv::Point() );
+            drawContours( drawing, t_contours, i, color, 0.8f, 8, hierarchy, 0, cv::Point() );
         }
 
-        if(contour_idx >= 0){
+        /*if(contour_idx >= 0){
             cv::Scalar color = cv::Scalar( 255, 20, 20); //rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
             drawContours( drawing, contours, contour_idx, color, 3, 8, hierarchy, 0, cv::Point() );
 
@@ -385,17 +396,18 @@ void GLEdgeDiscFilter::start() {
             std::vector<std::vector<cv::Point>> results;
             results.push_back(ransac_results);
             cv::fillPoly(drawing, results, cv::Scalar(32, 32, 240));
-        }
+        }*/
 
         /// Show in a window
 //        cv::namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
         cv::imshow( "Contours", drawing );
+        cv::waitKey(100);
 
         free(new_buffer);
         getInQueue()->pop();
 
         /// Push Contour data along with frame data to next stage in pipeline
-        ContourAttributes* contour_data = new ContourAttributes(frame_element, contours);
+        ContourAttributes* contour_data = new ContourAttributes((*frame_element), contours);
         getOutQueue()->push(contour_data);
 
         glDeleteTextures(1, &textID);

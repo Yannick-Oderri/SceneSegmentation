@@ -19,6 +19,7 @@ class GLEdgeDiscFilter:  public PipeFilter<FrameElement*, ContourAttributes*>{
 private:
     int viewport_width_;
     int viewport_height_;
+    GLFWwindow* parent_window_;
 
 public:
     /**
@@ -28,7 +29,8 @@ public:
     GLEdgeDiscFilter(QueueClient<FrameElement*>* in_queue):
     PipeFilter(in_queue, new QueueClient<ContourAttributes* >()),
     viewport_width_(VIEWPORT_WIDTH),
-    viewport_height_(VIEWPORT_HEIGHT){}
+    viewport_height_(VIEWPORT_HEIGHT),
+    parent_window_(nullptr){}
 
     /**
      * Initialize Pipeline filter
@@ -39,6 +41,13 @@ public:
      * Execute Pipeline filter thread. Functoin loops until application ends
      */
     void start();
+
+    /**
+     * Sets GLFW parent context/window
+     * @param parent_window
+     */
+    void setParentContext(GLFWwindow *parent_window);
+
 };
 
 

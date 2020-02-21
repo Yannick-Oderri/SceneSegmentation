@@ -3,11 +3,39 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include "context/context_factory.h"
-#include "simple_image_producer.h"
+#include "filter/simple_image_producer.h"
 #include "viewer/gl_viewport.h"
 #include "res/resource_mgr.h"
+#include "filter/gl_edge_disc_filter.h"
+#include "filter/contour_processor.h"
+#include "component/contour_policy.h"
 
 #ifndef AS_LIB
+
+void generateProcessingPipeline(AppContext* const context){
+    /// Image pipeline loader
+    SimpleImageProducer producer;
+    producer.initialize();
+
+    /// Edge Pipeline
+    GLEdgeDiscFilter dpt_img_fltr(producer.getOutQueue());
+    dpt_img_fltr.initialize();
+    if (context != nullptr)
+        dpt_img_fltr.setParentContext(context->getGLContext());
+
+    /// Contour Filter Pipeline
+    ContourProcessorPipeFilter contour_filter(dpt_img_fltr.getOutQueue(), new LineSegmentContourPolicy());
+    contour_filter.initialize();
+
+
+    std::thread producer_thread(&SimpleImageProducer::start, &producer);
+    std::thread dpt_fltr_thread(&GLEdgeDiscFilter::start, &dpt_img_fltr);
+    std::thread contour_fltr_thread(&ContourProcessorPipeFilter::start, &contour_filter);
+
+    /// End Pipeline
+    // producer.signalEnd();
+    producer_thread.join();
+}
 
 int main(int argc, char **argv){
 
@@ -18,6 +46,11 @@ int main(int argc, char **argv){
     app_ctx_builder.setResDir("../data");
 
     AppContext* const app_ctx = app_ctx_builder.Build();
+
+
+    generateProcessingPipeline(app_ctx);
+
+    return 0;
 
 
     /// Pointcloud Renderer

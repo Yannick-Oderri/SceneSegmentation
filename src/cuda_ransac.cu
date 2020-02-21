@@ -16,7 +16,7 @@ using namespace std;
 // Calc the theoretical number of iterations using some conservative parameters
 const double CONFIDENCE = 0.99;
 const double INLIER_RATIO = 0.18; // Assuming lots of noise in the data!
-const double INLIER_THRESHOLD = 3.0; // pixel distance
+// const double INLIER_THRESHOLD = 3.0; // pixel distance
 const int MAX_SUB_ITER = 256;
 
 struct RansacParams{

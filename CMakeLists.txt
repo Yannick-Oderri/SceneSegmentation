@@ -73,8 +73,14 @@ SET(project_edge_SOURCE
         viewer/gl_camera.cpp
         shader.cpp
 
+        filter/gl_edge_disc_filter.cpp
+        filter/contour_processor.cpp
+        component/contour_policy.cpp
+
         dataflow/pipeline.cpp
         dataflow/pipeline_filter.cpp
+
+        cuda_ransac.cu
 )
 SET(project_edge_HEADERS
         app.h
@@ -100,9 +106,8 @@ PREPEND(project_edge_hdr "${CMAKE_SOURCE_DIR}/src" ${project_edge_HEADERS})
 SET(project_edge_SOURCE_TEST
         dataflow/pipeline.cpp
         dataflow/pipeline_filter.cpp
-        kinect_bridge_producer.cpp
-        cuda_sobel_filter.cpp
-        gl_edge_disc_filter.cpp
+        filter/gl_edge_disc_filter.cpp
+        filter/contour_processor.cpp
         shader.cpp
         context.cpp
 )
@@ -206,6 +211,7 @@ IF(ENABLE_OPENGL)
     ${GLEW_LIBRARIES}
       OpenGL::GL
     glfw
+    ${CMAKE_DL_LIBS} ## Required for dlclose | dlopen
   )
   ADD_DEFINITIONS(-DEXAMPLES_WITH_OPENGL_SUPPORT=1)
 ENDIF(ENABLE_OPENGL)

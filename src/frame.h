@@ -181,17 +181,17 @@ public:
      }
 
      /// Constructor
-     ContourAttributes(ColorFrameElement color_data, DepthFrameElement depth_data, vector<vector<cv::Point2d>> contour_data):
+     ContourAttributes(ColorFrameElement color_data, DepthFrameElement depth_data, vector<vector<cv::Point>> contour_data):
      frame_element(color_data, depth_data),
      contours(contour_data){}
 
      /// Copy Constructor
-     ContourAttributes(FrameElement frame_data, vector<vector<cv::Point2d>> contour_data):
+     ContourAttributes(FrameElement frame_data, vector<vector<cv::Point>> contour_data):
      frame_element(frame_data),
      contours(contour_data){}
 
      FrameElement frame_element;
-     vector<vector<cv::Point2d>> contours;
+     vector<vector<cv::Point>> contours;
  };
 
 

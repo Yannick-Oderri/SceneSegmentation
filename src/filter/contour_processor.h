@@ -5,6 +5,7 @@
 #ifndef PROJECT_EDGE_CONTOUR_PROCESSOR_H
 #define PROJECT_EDGE_CONTOUR_PROCESSOR_H
 
+#include <component/contour_policy.h>
 #include "component/pipeline_policy.h"
 #include "pipeline_filter.h"
 #include "frame.h"

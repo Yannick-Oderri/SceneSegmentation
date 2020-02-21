@@ -16,7 +16,7 @@ public:
      * Constructor
      */
     ContourPolicy(){}
-    virtual void setContourData() = 0;
+    virtual void setContourData(ContourAttributes*) = 0;
     virtual void executePolicy() = 0;
 };
 
@@ -25,15 +25,13 @@ public:
  */
 class LineSegmentContourPolicy: public ContourPolicy{
 private:
-    ContourAttributes * const current_contour_data_;
+    ContourAttributes * current_contour_data_;
 
 public:
     LineSegmentContourPolicy():
-            ContourPolicy(){
+            ContourPolicy(){}
 
-    }
-
-    void setContourData(ContourAttributes * const contour_data){
+    void setContourData(ContourAttributes * contour_data){
         this->current_contour_data_ = contour_data;
     }
     void executePolicy();

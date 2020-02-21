@@ -47,7 +47,7 @@ public:
     }
 
     void initialize(){
-        std::string file_path = "../data/depth/test55.png";
+        std::string file_path = "../data/depth/test0.png";
         cv::Mat img;
         img = cv::imread(file_path, -1);
 
@@ -84,7 +84,7 @@ public:
             out_queue_->push(new FrameElement(cv::Mat(), *depth_content));
             frame_count++;
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(33));
+            std::this_thread::sleep_for(std::chrono::milliseconds(2000));
         }
     }
 
