@@ -138,17 +138,27 @@ class FrameElement {
     /// Private Fields
     ColorFrameElement color_frame_element_;
     DepthFrameElement depth_frame_element_;
+    cv::Mat ddiscontinuity_data_;
+    cv::Mat cdiscontinuity_data_;
+    cv::Mat contour_data_;
 
 public:
     /// Constructor
     FrameElement(ColorFrameElement color_frame_element, DepthFrameElement depth_frame_element):
             color_frame_element_(color_frame_element),
-            depth_frame_element_(depth_frame_element){}
+            depth_frame_element_(depth_frame_element),
+            ddiscontinuity_data_(),
+            cdiscontinuity_data_(),
+            contour_data_(){}
+
 
     /// Copy Contructor
     FrameElement(const FrameElement& cpy):
     color_frame_element_(cpy.color_frame_element_),
-    depth_frame_element_(cpy.depth_frame_element_){}
+    depth_frame_element_(cpy.depth_frame_element_),
+    ddiscontinuity_data_(cpy.ddiscontinuity_data_),
+    cdiscontinuity_data_(cpy.cdiscontinuity_data_),
+    contour_data_(cpy.contour_data_){}
 
 
     /**
@@ -165,6 +175,42 @@ public:
      */
     inline ColorFrameElement  const* getColorFrameElement(){
         return &this->color_frame_element_;
+    }
+
+    /**
+     * Set Edge information
+     * @param depth_disc
+     * @param curve_disc
+     * @param contour_data
+     */
+    inline void setEdgeData(cv::Mat depth_disc, cv::Mat curve_disc, cv::Mat contour_data){
+        this->ddiscontinuity_data_(depth_disc);
+        this->cdiscontinuity_data_(curve_disc);
+        this->contour_data_(contour_data);
+    }
+
+    /**
+     * Get depth discontinuty frame
+     * @return
+     */
+    inline cv::Mat getDepthDiscontinuity(){
+        return this->ddiscontinuity_data_;
+    }
+
+    /**
+     * get curve discontinuity frame
+     * @return
+     */
+    inline cv::Mat getCurveDiscontinuity(){
+        return this->cdiscontinuity_data_;
+    }
+
+    /**
+     * get Contour Frame
+     * @return
+     */
+    inline cv::Mat getContourFrame(){
+        return this->contour_data_;
     }
 };
 

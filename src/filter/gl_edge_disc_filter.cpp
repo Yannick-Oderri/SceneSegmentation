@@ -208,6 +208,14 @@ void GLEdgeDiscFilter::start() {
         memcpy(dd_buffer, frame_element->getDepthFrameData()->getData(), viewport_width_*viewport_height_*sizeof(float));
         libfreenect2::Frame dd_frame(viewport_width_, viewport_height_, sizeof(float), dd_buffer);
 
+        /// Duplicate for curve discontinuity
+        cv::Mat curve_discontinuity;
+        cv::Mat t_curve_discontinuity(frame_element->getDepthFrameData()->getHeight(), frame_element->getDepthFrameData()->getWidth(), CV_32F, (unsigned char*) frame_element->getDepthFrameData()->getData());
+        double min_val, max_val;
+        cv::minMaxLoc(t_curve_discontinuity, &min_val, &max_val);
+        // cv::flip(t_curve_discontinuity, t_curve_discontinuity, 0);
+        t_curve_discontinuity.convertTo(curve_discontinuity, CV_32F, 1.0/max_val, 0);
+
         processInput(window);
 
         // BOOST_LOG_TRIVIAL(info) << "Receiving edge discription frame:" << frameCount;
@@ -220,7 +228,7 @@ void GLEdgeDiscFilter::start() {
         glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-        glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_DEPTH_COMPONENT, viewport_width_, viewport_height_, 0, GL_DEPTH_COMPONENT, GL_FLOAT, frame_element->getDepthFrameData()->getData());
+        glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_DEPTH_COMPONENT, viewport_width_, viewport_height_, 0, GL_DEPTH_COMPONENT, GL_FLOAT, curve_discontinuity.ptr());
         //glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGB, viewport_width_, viewport_height_, 0, GL_RGB, GL_UNSIGNED_BYTE, image.ptr());
         //glGenerateMipmap(GL_TEXTURE_RECTANGLE);
 
@@ -300,7 +308,7 @@ void GLEdgeDiscFilter::start() {
 // Calculate Depth Discontinuity
 
         cv::Mat t_image(viewport_height_, viewport_width_, CV_32F, dd_frame.data);
-        double min_val, max_val;
+        min_val, max_val;
         cv::minMaxLoc(t_image, &min_val, &max_val);
         t_image.convertTo(t_image, CV_32F, 1.0/max_val, 0);
         cv::Mat depth_disc;
@@ -327,12 +335,13 @@ void GLEdgeDiscFilter::start() {
 
 
         unsigned char* new_buffer = (unsigned char*)malloc(dd_frame.width*dd_frame.height*sizeof(int));
-        glReadPixels(0, 0, dd_frame.height, dd_frame.width, GL_RGBA, GL_UNSIGNED_BYTE, new_buffer);
-       cv::Mat mat = cv::Mat(viewport_height_, viewport_width_, CV_8UC4, new_buffer);
+        glReadPixels(0, 0, dd_frame.width, dd_frame.height, GL_RGBA, GL_UNSIGNED_BYTE, new_buffer);
+        cv::Mat mat = cv::Mat(viewport_height_, viewport_width_, CV_8UC4, new_buffer);
 
         std::vector<cv::Mat> channels(4);
         cv::split(mat, channels);
         t_image.convertTo(depth_disc, CV_8U, 255, 0);
+        cv::threshold(channels[0], channels[0], 10, 255, cv::THRESH_BINARY);
         cv::Mat tt_mat = channels[0] | depth_canny;
 
         cv::GaussianBlur(tt_mat, tt_mat, cv::Size(3, 3), 20.0);
@@ -342,6 +351,7 @@ void GLEdgeDiscFilter::start() {
         cv::Mat skel(tt_mat.size(), CV_8UC1, cv::Scalar(0));
         cv::Mat temp(tt_mat.size(), CV_8UC1);
         cv::Mat element = cv::getStructuringElement(cv::MORPH_CROSS, cv::Size(3, 3));
+        cv::morphologyEx(tt_mat, tt_mat, cv::MORPH_CLOSE, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(4, 4)));
         do
         {
             cv::morphologyEx(tt_mat, temp, cv::MORPH_OPEN, element);
@@ -354,6 +364,7 @@ void GLEdgeDiscFilter::start() {
             cv::minMaxLoc(tt_mat, 0, &max);
             done = (max == 0);
         } while (!done);
+
 
         // cv::imshow("Mix Edges", skel);
 
@@ -405,6 +416,9 @@ void GLEdgeDiscFilter::start() {
 
         free(new_buffer);
         getInQueue()->pop();
+
+        /// Add edge information to frame element
+        frame_element->setEdgeData(depth_canny, channels[0], drawing);
 
         /// Push Contour data along with frame data to next stage in pipeline
         ContourAttributes* contour_data = new ContourAttributes((*frame_element), contours);

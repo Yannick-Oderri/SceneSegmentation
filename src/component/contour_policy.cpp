@@ -6,25 +6,46 @@
 #include <tuple>
 #include <utility>
 
+#include "draw/line_sgmnt.h"
 
 using namespace std;
-using LineSegment = vector<pair<cv::Point, cv::Point>>;
 
 
 // Forward Declarations
-vector<LineSegment>  lineSegmentExtraction(Contours contour_set, double tolerance);
+vector<vector<LineSegment>>  lineSegmentExtraction(Contours contour_set, double tolerance);
 
 void LineSegmentContourPolicy::executePolicy() {
     Contours contours = this->current_contour_data_->contours;
+    FrameElement frame_element = this->current_contour_data_->frame_element;
 
     // Segment Contours
-    vector<LineSegment>segments =  lineSegmentExtraction(contours, 10.0f);
+    vector<vector<LineSegment>>contour_segments =  lineSegmentExtraction(contours, 3.0f);
 
+    // Calculate contour features
+
+
+    //contour_segments
 }
 
-
-
-
+void calculateContourFeatures(vector<vector<LineSegment>> contour_segments, Contours contour_set, cv::Mat ddiscontinuity_map){
+    for(int i = 0; i < contour_segments.size(); i++){
+        auto contour = contour_set[i];
+        auto segments = contour_segments[i];
+        for(auto line_segment : segments){
+            std::pair<int, int> contour_indecies = line_segment.getContourIndecies();
+            int count = 0;
+            for(int i = contour_indecies.first; i < contour_indecies.second; i++){
+                // Check if segment is depth
+                cv::Point point = contour[i];
+                if(ddiscontinuity_map.at<int8_t >(point) >= 200){
+                    count++;
+                }
+            }
+            /// Set discontinuity based on depth discontinuity map
+            line_segment.setDiscontinuity(count >= (contour_indecies.second - contour_indecies.first) * 0.5);
+        }
+    }
+}
 
 /**
  * Segments
@@ -74,12 +95,25 @@ pair<int, float> maxSegmentDeviation(int first, int last, Contour contour){
     return pair<int, double>(max_dist_index, max_dist);
 }
 
+void drawSegmentList(vector<vector<LineSegment>> contour_segments){
+    cv::Mat image(480, 640, CV_8UC3);
+    cv::RNG rng(3432764);
+    for(auto segment : contour_segments){
+        cv::Scalar color = cv::Scalar(rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+        for(auto line_segment: segment){
+            cv::line(image, line_segment.getStartPos(), line_segment.getEndPos(), color);
+        }
+    }
 
-vector<LineSegment> lineSegmentExtraction(Contours contour_set, double tolerance) {
-    vector<LineSegment> segment_list = vector<LineSegment>();
+    cv::imshow("Line Segments", image);
+    cv::waitKey(0);
+}
+
+vector<vector<LineSegment>> lineSegmentExtraction(Contours contour_set, double tolerance) {
+    vector<vector<LineSegment>> contour_segments = vector<vector<LineSegment>>();
 
     for(Contour contour : contour_set) {
-        LineSegment segments = LineSegment();
+        vector<LineSegment> segments;
         int edge_count = contour.size();
         int first = 0;
         int last = edge_count - 1;
@@ -93,14 +127,15 @@ vector<LineSegment> lineSegmentExtraction(Contours contour_set, double tolerance
             }
             cv::Point start_point = contour.at(first);
             cv::Point end_point = contour.at(last);
-            segments.push_back(std::pair<cv::Point, cv::Point>(start_point, end_point));
+            LineSegment line_segment(contour, std::pair<int, int>(first, last));
+            segments.push_back(line_segment);
 
             first = last;
             last = edge_count - 1;
         }
 
-        segment_list.push_back(segments);
+        contour_segments.push_back(segments);
     }
-
-    return segment_list;
+    drawSegmentList(contour_segments);
+    return contour_segments;
 }

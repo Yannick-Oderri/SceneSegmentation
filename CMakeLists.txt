@@ -80,6 +80,8 @@ SET(project_edge_SOURCE
         dataflow/pipeline.cpp
         dataflow/pipeline_filter.cpp
 
+        draw/line_sgmnt.cpp
+
         cuda_ransac.cu
 )
 SET(project_edge_HEADERS

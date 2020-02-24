@@ -50,5 +50,5 @@ void main()
     // grad  = (grad - PI);
     // grad = (grad - radians(180))/(radians(186.6));// + sobel_hori * 0.1 + sobel_vert * 0.1;
 
-    FragColor = vec4(sobel_hori, 0, 0, 1.0);
+    FragColor = vec4(sobel_hori, sobel_hori, sobel_hori, 1.0);
 } 
