@@ -23,7 +23,6 @@ private:
     Contour* contour_;
     std::pair<int, int> contour_region_;
 
-
 public:
     LineSegment(cv::Point start_pos, cv::Point end_pos);
 
@@ -48,19 +47,19 @@ public:
      * get slope of line segment
      * @return
      */
-    inline float getSlope();
+    float getSlope();
 
     /**
      * get length of line segment
      * @return
      */
-    inline float getLength();
+    float getLength();
 
     /**
      * Get Concavity of Line segment
      * @return
      */
-    inline tribool getConcavity();
+    tribool getConcavity();
 
     /**
      * Get locatoin of line segment
@@ -72,10 +71,30 @@ public:
      * Get discontinuity of line segment
      * @return
      */
-    inline tribool getDiscontinuity();
-    inline void setDiscontinuity(bool val);
+    tribool getDiscontinuity();
+    void setDiscontinuity(bool val);
 
-    inline std::pair<int, int> getContourIndecies();
+    std::pair<int, int> getContourIndecies();
+
+    /**
+     * Get angle of line segment with horizontal
+     * @return
+     */
+    float getAngle();
+
+    /**
+     * Returns dot product between 2 lines
+     * @param rhs
+     * @return
+     */
+    float dot(LineSegment& rhs);
+
+    /**
+     * Returns projection between 2 line segments
+     * @param rhs
+     * @return
+     */
+    float proj(LineSegment& rhs);
 
 };
 

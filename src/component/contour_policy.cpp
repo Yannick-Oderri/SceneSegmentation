@@ -5,28 +5,93 @@
 #include "contour_policy.h"
 #include <tuple>
 #include <utility>
+#include <utils/helper.h>
 
 #include "draw/line_sgmnt.h"
+#include "draw/line_pair.h"
 
 using namespace std;
 
 
+
 // Forward Declarations
 vector<vector<LineSegment>>  lineSegmentExtraction(Contours contour_set, double tolerance);
+void calculateContourFeatures(vector<vector<LineSegment>> contour_segments, Contours contour_set, cv::Mat ddiscontinuity_map);
+vector<LinePair> pairContourSegments(vector<vector<LineSegment>>& contour_segments, Contours& contour_set);
+void drawLinePairs(vector<LinePair>& line_pairs, cv::Mat& color_image);
 
 void LineSegmentContourPolicy::executePolicy() {
     Contours contours = this->current_contour_data_->contours;
     FrameElement frame_element = this->current_contour_data_->frame_element;
 
     // Segment Contours
-    vector<vector<LineSegment>>contour_segments =  lineSegmentExtraction(contours, 3.0f);
+    vector<vector<LineSegment>>contour_segments =  lineSegmentExtraction(contours, 5.0f);
 
     // Calculate contour features
+    //calculateContourFeatures(contour_segments, contours, frame_element.getDepthDiscontinuity());
 
+    // Pair contours
+    vector<LinePair> line_pairs = pairContourSegments(contour_segments, contours);
+    cv::Mat drawing = cv::Mat::zeros( frame_element.getContourFrame().size(), CV_8UC3 );
+    drawLinePairs(line_pairs, drawing);
 
-    //contour_segments
 }
 
+void drawLinePairs(vector<LinePair>& line_pairs, cv::Mat& color_image){
+    cv::RNG rng(3432764);
+
+    for(auto line_pair: line_pairs){
+        cv::Scalar color = cv::Scalar(rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+        LineSegment& sgmnt_1 = line_pair[0];
+        LineSegment& sgmnt_2 = line_pair[1];
+        cv::line(color_image, sgmnt_1.getStartPos(), sgmnt_1.getEndPos(), color);
+        cv::line(color_image, sgmnt_2.getStartPos(), sgmnt_2.getEndPos(), color);
+    }
+
+    cv::imshow("Paired Lines", color_image);
+    cv::waitKey(0);
+}
+
+vector<LinePair> pairContourSegments(vector<vector<LineSegment>>& contour_segments, Contours& contour_set){
+    vector<LinePair> line_pairs;
+    for(int i = 0; i < contour_segments.size(); i++){
+        vector<LineSegment>& segments = contour_segments[i];
+
+        Combinations cs(segments.size(), 2);
+        vector<int> used_indecies;
+        while(!cs.completed){
+            Combinations::combination_t c = cs.next();
+            LineSegment& sgmnt_1 = segments[c[0]];
+            LineSegment& sgmnt_2 = segments[c[1]];
+            // If lines has been used already skip pairing
+            if(std::count(used_indecies.begin(), used_indecies.end(), c[0]) != 0||
+               std::count(used_indecies.begin(), used_indecies.end(), c[1]) != 0){
+                continue;
+            }
+
+            float dot = sgmnt_1.dot(sgmnt_2);
+            float ang = acos(dot / (sgmnt_1.getLength()*sgmnt_2.getLength()));
+
+            // Check if segments are parallel and equal length
+            // abs(1 - abs(sgmnt_1.proj(sgmnt_2))) >= 1.0
+            if( ang <= 0.12)  {              // perform pairing
+                line_pairs.push_back(LinePair(sgmnt_1, sgmnt_2));
+                // Keep track of lines that have been paired already [TODO This method could be imporved]
+                used_indecies.push_back(c[0]);
+                used_indecies.push_back(c[1]);
+            }
+        }
+    }
+
+    return line_pairs;
+}
+
+/**
+ * Calculate line segment properties
+ * @param contour_segments
+ * @param contour_set
+ * @param ddiscontinuity_map
+ */
 void calculateContourFeatures(vector<vector<LineSegment>> contour_segments, Contours contour_set, cv::Mat ddiscontinuity_map){
     for(int i = 0; i < contour_segments.size(); i++){
         auto contour = contour_set[i];
@@ -37,7 +102,7 @@ void calculateContourFeatures(vector<vector<LineSegment>> contour_segments, Cont
             for(int i = contour_indecies.first; i < contour_indecies.second; i++){
                 // Check if segment is depth
                 cv::Point point = contour[i];
-                if(ddiscontinuity_map.at<int8_t >(point) >= 200){
+                if(ddiscontinuity_map.at<uint8_t>(point) >= 200){
                     count++;
                 }
             }
@@ -125,8 +190,6 @@ vector<vector<LineSegment>> lineSegmentExtraction(Contours contour_set, double t
                 last = deviation.first;
                 deviation = maxSegmentDeviation(first, last, contour);
             }
-            cv::Point start_point = contour.at(first);
-            cv::Point end_point = contour.at(last);
             LineSegment line_segment(contour, std::pair<int, int>(first, last));
             segments.push_back(line_segment);
 

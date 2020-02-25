@@ -3,7 +3,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 3.11)
 # ========================================================
 # = Project Options
 # ========================================================
-OPTION(ENABLE_CUDA "Enable CUDA support" ON)
+OPTION(ENABLE_CUDA "Enable CUDA support" OFF)
 OPTION(ENABLE_IMGUI "Enable Dear IMGUI support" ON)
 OPTION(ENABLE_QT "Enable Qt UI" OFF)
 OPTION(ENABLE_OPENGL "Enable OpenGL support" ON)
@@ -51,7 +51,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # = Declare Project
 # ========================================================
 IF(ENABLE_CUDA)
-  ADD_DEFINITIONS(-DWITH_CUDA=1)
+  #ADD_DEFINITIONS(-DWITH_CUDA=1)
   PROJECT(project_edge
           VERSION 0.0.1
           LANGUAGES CUDA CXX)
@@ -80,9 +80,12 @@ SET(project_edge_SOURCE
         dataflow/pipeline.cpp
         dataflow/pipeline_filter.cpp
 
-        draw/line_sgmnt.cpp
+        utils/helper.cpp
 
-        cuda_ransac.cu
+        draw/drawable.cpp
+        draw/line_sgmnt.cpp
+        draw/line_pair.cpp
+
 )
 SET(project_edge_HEADERS
         app.h
@@ -151,6 +154,8 @@ IF(ENABLE_CUDA)
   INCLUDE_DIRECTORIES(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
   LIST(APPEND project_edge_LIBRARIES
           ${CUDART_LIBRARY})
+  #LIST(APPEND project_edge_src
+   #       cuda_ransac.cu)
 ENDIF()
 
 # ========================================================

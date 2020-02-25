@@ -14,6 +14,8 @@ LineSegment::LineSegment(cv::Point start_pos, cv::Point end_pos):
 }
 
 LineSegment::LineSegment(Contour contour, std::pair<int, int>contour_region):
+        contour_(&contour),
+        contour_region_(contour_region),
         start_pos_(contour[contour_region.first]),
         end_pos_(contour[contour_region.second]),
         feature_concave_convex_(indeterminate),
@@ -54,4 +56,26 @@ tribool LineSegment::getLocation() {
 
 void LineSegment::setDiscontinuity(bool val) {
     this->feature_depth_curve_ = val;
+}
+
+float LineSegment::getAngle() {
+    float res = atan(this->getSlope());
+    return (res < 0) ? res + 180 : res;
+}
+
+float LineSegment::dot(LineSegment &rhs) {
+    cv::Point l_vec = cv::Point(end_pos_.x - start_pos_.x, end_pos_.y - start_pos_.y);
+    cv::Point r_vec = cv::Point(rhs.end_pos_.x - rhs.start_pos_.x, rhs.end_pos_.y - rhs.start_pos_.y);
+    return (float)((l_vec.x * r_vec.x) + (l_vec.y * r_vec.y));
+}
+
+float LineSegment::proj(LineSegment &rhs) {
+    cv::Point l_vec = cv::Point(end_pos_.x - start_pos_.x, end_pos_.y - start_pos_.y);
+    cv::Point r_vec = cv::Point(rhs.end_pos_.x - rhs.start_pos_.x, rhs.end_pos_.y - rhs.start_pos_.y);
+    float dot = (float)((l_vec.x * r_vec.x) + (l_vec.y * r_vec.y));
+    return dot / this->getLength();
+}
+
+std::pair<int, int> LineSegment::getContourIndecies() {
+    return this->contour_region_;
 }

@@ -16,15 +16,19 @@
 
 #include <boost/log/trivial.hpp>
 #include "shader.hpp"
-#include <cuda_runtime.h>
 
 #include "gl_edge_disc_filter.h"
+
+#ifdef WITH_CUDA
+#include <cuda_runtime.h>
 #include "cuda_ransac_kernel.h"
+#endif
 
 
 int findEnclosingContour(std::vector<std::vector<cv::Point>> &contours, std::vector<cv::Vec4i> &hierarchy, cv::Point2d &point, int idx=-1);
-std::vector<cv::Point>
-performRansacOnCotour(cv::Mat &img, std::vector<std::vector<cv::Point>> &contours, int idx, cv::Point2d &, std::vector<cv::Vec4i> &);
+#ifdef WITH_CUDA
+void performRansacOnCotour(cv::Mat &img, std::vector<std::vector<cv::Point>> &contours, int idx, cv::Point2d &, std::vector<cv::Vec4i> &);
+#endif
 
 void handler(int sig) {
     void *array[20];
@@ -467,6 +471,7 @@ int findEnclosingContour(std::vector<std::vector<cv::Point>> &contours, std::vec
     return -1;
 }
 
+#ifdef WITH_CUDA
 std::vector<cv::Point>
 performRansacOnCotour(cv::Mat &img, std::vector<std::vector<cv::Point>> &contours, int idx, cv::Point2d &point, std::vector<cv::Vec4i> &hierarchy){
     cv::Mat contour_img(cv::Size(640, 480), CV_8UC1);
@@ -501,3 +506,4 @@ performRansacOnCotour(cv::Mat &img, std::vector<std::vector<cv::Point>> &contour
     return ransac_results;
 
 }
+#endif

@@ -183,10 +183,10 @@ public:
      * @param curve_disc
      * @param contour_data
      */
-    inline void setEdgeData(cv::Mat depth_disc, cv::Mat curve_disc, cv::Mat contour_data){
-        this->ddiscontinuity_data_(depth_disc);
-        this->cdiscontinuity_data_(curve_disc);
-        this->contour_data_(contour_data);
+    inline void setEdgeData(cv::Mat& depth_disc, cv::Mat& curve_disc, cv::Mat& contour_data){
+        this->ddiscontinuity_data_ = depth_disc;
+        this->cdiscontinuity_data_ = curve_disc;
+        this->contour_data_ = contour_data;
     }
 
     /**
