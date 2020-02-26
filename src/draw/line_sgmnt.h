@@ -14,8 +14,8 @@ using Contour = std::vector<cv::Point>;
 
 class LineSegment {
 private:
-    tribool feature_left_right_;
-    tribool feature_concave_convex_;
+    tribool feature_right_left_;
+    tribool feature_convex_concave_;
     tribool feature_depth_curve_;
 
     cv::Point start_pos_;
@@ -56,16 +56,16 @@ public:
     float getLength();
 
     /**
-     * Get Concavity of Line segment
+     * Get Convexity of Line segment
      * @return
      */
-    tribool getConcavity();
+    tribool getConvexity();
 
     /**
      * Get locatoin of line segment
      * @return
      */
-    inline tribool getLocation();
+    inline tribool getPose();
 
     /**
      * Get discontinuity of line segment
@@ -96,6 +96,11 @@ public:
      */
     float proj(LineSegment& rhs);
 
+    std::pair<cv::Point, cv::Point> asPointPair();
+
+    void setPose(bool b);
+
+    void setConvexity(bool b);
 };
 
 

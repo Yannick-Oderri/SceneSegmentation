@@ -7,9 +7,9 @@
 LineSegment::LineSegment(cv::Point start_pos, cv::Point end_pos):
         start_pos_(start_pos),
         end_pos_(end_pos),
-        feature_concave_convex_(indeterminate),
+        feature_convex_concave_(indeterminate),
         feature_depth_curve_(indeterminate),
-        feature_left_right_(indeterminate){
+        feature_right_left_(indeterminate){
 
 }
 
@@ -18,9 +18,9 @@ LineSegment::LineSegment(Contour contour, std::pair<int, int>contour_region):
         contour_region_(contour_region),
         start_pos_(contour[contour_region.first]),
         end_pos_(contour[contour_region.second]),
-        feature_concave_convex_(indeterminate),
+        feature_convex_concave_(indeterminate),
         feature_depth_curve_(indeterminate),
-        feature_left_right_(indeterminate){
+        feature_right_left_(indeterminate){
 
 }
 
@@ -42,16 +42,16 @@ float LineSegment::getLength() {
     return sqrt(pow(end_pos_.y - start_pos_.y, 2) + pow(end_pos_.x - start_pos_.x, 2));
 }
 
-tribool LineSegment::getConcavity() {
-    return this->feature_concave_convex_;
+tribool LineSegment::getConvexity() {
+    return this->feature_convex_concave_;
 }
 
 tribool LineSegment::getDiscontinuity() {
     return this->feature_depth_curve_;
 }
 
-tribool LineSegment::getLocation() {
-    return this->feature_left_right_;
+tribool LineSegment::getPose() {
+    return this->feature_right_left_;
 }
 
 void LineSegment::setDiscontinuity(bool val) {
@@ -76,4 +76,16 @@ float LineSegment::proj(LineSegment &rhs) {
 
 std::pair<int, int> LineSegment::getContourIndecies() {
     return this->contour_region_;
+}
+
+std::pair<cv::Point, cv::Point> LineSegment::asPointPair() {
+    return std::pair<cv::Point, cv::Point>(this->start_pos_, this->end_pos_);
+}
+
+void LineSegment::setPose(bool val) {
+    this->feature_right_left_ = true;
+}
+
+void LineSegment::setConvexity(bool val) {
+    this->feature_convex_concave_ = val;
 }

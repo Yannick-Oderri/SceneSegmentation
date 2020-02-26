@@ -16,9 +16,11 @@ using namespace std;
 
 // Forward Declarations
 vector<vector<LineSegment>>  lineSegmentExtraction(Contours contour_set, double tolerance);
-void calculateContourFeatures(vector<vector<LineSegment>> contour_segments, Contours contour_set, cv::Mat ddiscontinuity_map);
+void calculateContourFeatures(vector<vector<LineSegment>> contour_segments, Contours contour_set, FrameElement&);
 vector<LinePair> pairContourSegments(vector<vector<LineSegment>>& contour_segments, Contours& contour_set);
 void drawLinePairs(vector<LinePair>& line_pairs, cv::Mat& color_image);
+std::vector<cv::Point> generateWindowCooridnates(std::pair<cv::Point, cv::Point> line, int window_size, int buffer_size);
+std::pair<int, int> determineROIMeans(cv::Mat depth_img, vector<cv::Point> roi, cv::Mat& contour_mask, double& contour_overlap_p, double& contour_overlap_n);
 
 void LineSegmentContourPolicy::executePolicy() {
     Contours contours = this->current_contour_data_->contours;
@@ -28,13 +30,75 @@ void LineSegmentContourPolicy::executePolicy() {
     vector<vector<LineSegment>> contour_segments =  lineSegmentExtraction(contours, 3.0f);
 
     // Calculate contour features
-    calculateContourFeatures(contour_segments, contours, frame_element.getDepthDiscontinuity());
+    calculateContourFeatures(contour_segments, contours, frame_element);
 
     // Pair contours
     vector<LinePair> line_pairs = pairContourSegments(contour_segments, contours);
     cv::Mat drawing = cv::Mat::zeros( frame_element.getContourFrame().size(), CV_8UC3 );
     drawLinePairs(line_pairs, drawing);
 
+}
+
+void mergeLines(vector<LineSegment> segments, FrameElement& frame_element){
+
+}
+
+/**
+ * Calculate line segment properties
+ * @param contour_segments
+ * @param contour_set
+ * @param ddiscontinuity_map
+ */
+void calculateContourFeatures(vector<vector<LineSegment>> contour_segments, Contours contour_set, FrameElement& frame_element){
+    for(int i = 0; i < contour_segments.size(); i++){
+        auto contour = contour_set[i];
+        auto segments = contour_segments[i];
+        // generate contour mask
+        cv::Mat contour_mask(frame_element.getDepthDiscontinuity().rows, frame_element.getDepthDiscontinuity().cols, CV_32F);
+        cv::drawContours(contour_mask, contour_set, i, cv::Scalar(255),  -1);
+
+        // perform calculation on contour segments
+        for(auto line_segment : segments){
+            // Determine Region of interest averages
+            vector<cv::Point> roi_polies = generateWindowCooridnates(line_segment.asPointPair(), 5, 0);
+            double countp, countn;
+            std::pair<int, int> roi_means = determineROIMeans(frame_element.getDepthFrameData()->getcvMat(), roi_polies, contour_mask, countp, countn);
+
+            std::pair<int, int> contour_indecies = line_segment.getContourIndecies();
+            int count = 0;
+            int line_depth_mean;
+            for(int i = contour_indecies.first; i < contour_indecies.second; i++){
+                // Check if segment is depth
+                cv::Point point = contour[i];
+                int depth_val = frame_element.getDepthDiscontinuity().at<uint8_t>(point);
+                line_depth_mean += depth_val;
+                if(depth_val >= 200){
+                    count++;
+                }
+            }
+            line_depth_mean /= (contour_indecies.second - contour_indecies.first);
+            /// Set discontinuity based on depth discontinuity map
+            if(count >= (contour_indecies.second - contour_indecies.first) * 0.5) {
+                line_segment.setDiscontinuity(true);
+
+                /// set edge pose base on roi depths and amount of overlap with contour mask
+                if ((roi_means.first >= roi_means.second) and (countn >= countp))
+                    line_segment.setPose(true);
+                else if((roi_means.second >= roi_means.first) && (countp >= countn))
+                    line_segment.setPose(false);
+
+            }else{ /// for curve discontinuity base
+                line_segment.setDiscontinuity(false);
+
+                /// set convexity if average line depth is less than or equal roi average
+                if ((line_depth_mean <= roi_means.first) && (line_depth_mean <= roi_means.second))
+                    line_segment.setConvexity(true);
+                else
+                    line_segment.setConvexity(false);
+            }
+
+        }
+    }
 }
 
 void drawLinePairs(vector<LinePair>& line_pairs, cv::Mat& color_image){
@@ -90,31 +154,6 @@ vector<LinePair> pairContourSegments(vector<vector<LineSegment>>& contour_segmen
     return line_pairs;
 }
 
-/**
- * Calculate line segment properties
- * @param contour_segments
- * @param contour_set
- * @param ddiscontinuity_map
- */
-void calculateContourFeatures(vector<vector<LineSegment>> contour_segments, Contours contour_set, cv::Mat ddiscontinuity_map){
-    for(int i = 0; i < contour_segments.size(); i++){
-        auto contour = contour_set[i];
-        auto segments = contour_segments[i];
-        for(auto line_segment : segments){
-            std::pair<int, int> contour_indecies = line_segment.getContourIndecies();
-            int count = 0;
-            for(int i = contour_indecies.first; i < contour_indecies.second; i++){
-                // Check if segment is depth
-                cv::Point point = contour[i];
-                if(ddiscontinuity_map.at<uint8_t>(point) >= 200){
-                    count++;
-                }
-            }
-            /// Set discontinuity based on depth discontinuity map
-            line_segment.setDiscontinuity(count >= (contour_indecies.second - contour_indecies.first) * 0.5);
-        }
-    }
-}
 
 /**
  * Segments
@@ -206,4 +245,94 @@ vector<vector<LineSegment>> lineSegmentExtraction(Contours contour_set, double t
     }
     drawSegmentList(contour_segments);
     return contour_segments;
+}
+
+/**
+ * Determine window/roi around line polygon-coordinates
+ * @param line
+ * @param window_size
+ * @param buffer_size
+ * @return
+ */
+std::vector<cv::Point> generateWindowCooridnates(std::pair<cv::Point, cv::Point> line, int window_size, int buffer_size){
+    float dy = abs(line.second.y - line.first.y);
+    float dx = abs(line.second.x - line.second.x);
+    std::pair<cv::Point, cv::Point> res;
+    cv::Point pt1, pt2, pt3, pt4;
+
+    // Determine line orientation
+    if(dy >= dx){
+        pt1 = cv::Point(line.first.x - buffer_size, line.first.y - window_size - buffer_size);
+        pt2 = cv::Point(line.first.x + buffer_size, line.first.y + window_size + buffer_size);
+        pt3 = cv::Point(line.second.x - buffer_size, line.second.y - window_size - buffer_size);
+        pt4 = cv::Point(line.second.x + buffer_size, line.second.y + window_size + buffer_size);
+    }else{
+        pt1 = cv::Point(line.first.x - window_size - buffer_size, line.first.y - buffer_size);
+        pt2 = cv::Point(line.first.x + window_size + buffer_size, line.first.y + buffer_size);
+        pt3 = cv::Point(line.second.x - window_size - buffer_size, line.second.y - buffer_size);
+        pt4 = cv::Point(line.second.x + window_size + buffer_size, line.second.y + buffer_size);
+    }
+
+    cv::Point temp_1 = (((pt1 + pt3) / 2) - ((pt2 + pt4) / 2));
+    float mag_1 = sqrtf(pow(temp_1.x, 2) + pow(temp_1.y, 2));
+
+    cv::Point temp_2 = (((pt1 + pt4) / 2) - ((pt2 + pt3) / 2));
+    float mag_2 = sqrtf(pow(temp_2.x, 2) + pow(temp_2.y, 2));
+
+    vector<cv::Point> win(8);
+    if (mag_1 > mag_2){
+        // win_p
+        win.at(0) = line.first;
+        win.at(1) = line.second;
+        win.at(2) = pt4;
+        win.at(3) = pt2;
+
+        // win_n
+        win.at(4) = pt1;
+        win.at(5) = pt3;
+        win.at(6) = line.second;
+        win.at(7) = line.first;
+    }else{
+        // win_p
+        win.at(0) = line.first;
+        win.at(1) = pt4;
+        win.at(2) = line.second;
+        win.at(3) = pt2;
+
+        // win_n
+        win.at(4) = pt1;
+        win.at(5) = line.second;
+        win.at(6) = pt3;
+        win.at(7) = line.first;
+    }
+
+    return win;
+}
+
+std::pair<int, int> determineROIMeans(cv::Mat depth_img, vector<cv::Point> roi, cv::Mat& contour_mask, double& contour_overlap_p, double& contour_overlap_n){
+    std::pair<int, int> res;
+
+    for(int i = 0; i < 2; i++) {
+        cv::Mat mask(depth_img.rows, depth_img.cols, CV_32F);
+
+        vector<vector<cv::Point>> t_contour(2); // define temporary contour for drawing rois
+        t_contour.at(0) = vector<cv::Point>(roi.begin(), roi.end() - 4);
+        t_contour.at(1) = vector<cv::Point>(roi.begin() + 4, roi.end());
+
+        // plot roi
+        cv::drawContours(mask, t_contour, 0, cv::Scalar(255), -1);
+        // determine count
+        int count = cv::countNonZero(mask);
+        double mask_sum = depth_img.dot(mask);
+        if(i == 0) {
+            res.first = mask_sum / count;
+            contour_overlap_p = contour_mask.dot(mask);
+        }else {
+            res.second = mask_sum / count;
+            contour_overlap_n = contour_mask.dot(mask);
+        }
+    }
+
+    return res;
+
 }
