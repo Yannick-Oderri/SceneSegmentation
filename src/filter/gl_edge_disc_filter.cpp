@@ -394,13 +394,34 @@ void GLEdgeDiscFilter::start() {
         /// Draw contours
         cv::Mat drawing = cv::Mat::zeros( mat.size(), CV_8UC3 );
         cv::circle(drawing, point, 5, cv::Scalar(10, 242, 32), cv::FILLED);
-
+        vector<int> to_delete;
+        vector<int> to_add;
         for( int i = 0; i< t_contours.size(); i++ ) {
             double area = cv::contourArea(t_contours[i]);
             if(area < 500) continue;
-            contours.push_back(t_contours[i]);
+            if(hierarchy[i][3] >= 0 && std::find(to_delete.begin(), to_delete.end(), hierarchy[i][3]) == to_delete.end())
+                to_delete.push_back(hierarchy[i][3]);
+
+            to_add.push_back(i);
+            //contours.push_back(t_contours[i]);
+            //cv::Scalar color = cv::Scalar(255,255, 255);
+            //drawContours( drawing, t_contours, i, color, 0.8f, 8, hierarchy, 0, cv::Point() );
+        }
+
+        // Ranges must be sorted!
+        std::sort(to_delete.begin(), to_delete.end());
+        std::sort(to_add.begin(), to_add.end());
+
+        std::vector<int> valid_contour; // Will contain the symmetric difference
+        std::set_symmetric_difference(to_add.begin(), to_add.end(),
+                                      to_delete.begin(), to_delete.end(),
+                                      std::back_inserter(valid_contour));
+
+        // second pass to delete enclosing parent contour
+        for( int contour_index : valid_contour) {
+            contours.push_back(t_contours[contour_index]);
             cv::Scalar color = cv::Scalar(255,255, 255);
-            drawContours( drawing, t_contours, i, color, 0.8f, 8, hierarchy, 0, cv::Point() );
+            drawContours( drawing, t_contours, contour_index, color, 0.8f, 8, hierarchy, 0, cv::Point() );
         }
 
         /*if(contour_idx >= 0){

@@ -59,7 +59,7 @@ void LineSegment::setDiscontinuity(bool val) {
 }
 
 float LineSegment::getAngle() {
-    float res = atan(this->getSlope());
+    float res = atan(-this->getSlope());
     return (res < 0) ? res + 180 : res;
 }
 
@@ -70,9 +70,7 @@ float LineSegment::dot(LineSegment &rhs) {
 }
 
 float LineSegment::proj(LineSegment &rhs) {
-    cv::Point l_vec = cv::Point(end_pos_.x - start_pos_.x, end_pos_.y - start_pos_.y);
-    cv::Point r_vec = cv::Point(rhs.end_pos_.x - rhs.start_pos_.x, rhs.end_pos_.y - rhs.start_pos_.y);
-    float dot = (float)((l_vec.x * r_vec.x) + (l_vec.y * r_vec.y));
+    float dot = this->dot(rhs);
     return dot / this->getLength();
 }
 

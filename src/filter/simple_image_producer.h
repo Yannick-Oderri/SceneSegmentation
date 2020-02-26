@@ -47,7 +47,7 @@ public:
     }
 
     void initialize(){
-        std::string file_path = "../data/depth/test55.png";
+        std::string file_path = "../data/depth/test0.png";
         cv::Mat img;
         img = cv::imread(file_path, -1);
 

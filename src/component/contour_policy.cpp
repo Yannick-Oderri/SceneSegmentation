@@ -25,10 +25,10 @@ void LineSegmentContourPolicy::executePolicy() {
     FrameElement frame_element = this->current_contour_data_->frame_element;
 
     // Segment Contours
-    vector<vector<LineSegment>>contour_segments =  lineSegmentExtraction(contours, 5.0f);
+    vector<vector<LineSegment>> contour_segments =  lineSegmentExtraction(contours, 3.0f);
 
     // Calculate contour features
-    //calculateContourFeatures(contour_segments, contours, frame_element.getDepthDiscontinuity());
+    calculateContourFeatures(contour_segments, contours, frame_element.getDepthDiscontinuity());
 
     // Pair contours
     vector<LinePair> line_pairs = pairContourSegments(contour_segments, contours);
@@ -70,11 +70,15 @@ vector<LinePair> pairContourSegments(vector<vector<LineSegment>>& contour_segmen
             }
 
             float dot = sgmnt_1.dot(sgmnt_2);
-            float ang = acos(dot / (sgmnt_1.getLength()*sgmnt_2.getLength()));
+            float ang = sgmnt_1.proj(sgmnt_2) / sgmnt_2.getLength();
+
+            // length ration
+            float len_ratio = abs((sgmnt_1.getLength() - sgmnt_2.getLength())/ (sgmnt_1.getLength() + sgmnt_2.getLength()));
+
 
             // Check if segments are parallel and equal length
             // abs(1 - abs(sgmnt_1.proj(sgmnt_2))) >= 1.0
-            if( ang <= 0.12)  {              // perform pairing
+            if( ang <= 0.07f && len_ratio < 0.3f)  { // perform pairing
                 line_pairs.push_back(LinePair(sgmnt_1, sgmnt_2));
                 // Keep track of lines that have been paired already [TODO This method could be imporved]
                 used_indecies.push_back(c[0]);
@@ -191,7 +195,8 @@ vector<vector<LineSegment>> lineSegmentExtraction(Contours contour_set, double t
                 deviation = maxSegmentDeviation(first, last, contour);
             }
             LineSegment line_segment(contour, std::pair<int, int>(first, last));
-            segments.push_back(line_segment);
+            if(line_segment.getLength() > 10)
+                segments.push_back(line_segment);
 
             first = last;
             last = edge_count - 1;
