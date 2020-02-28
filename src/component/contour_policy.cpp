@@ -95,11 +95,11 @@ void calculateContourFeatures(vector<vector<LineSegment>>& contour_segments, Con
 
             /// Set discontinuity based on depth discontinuity map
             double depth_disc_mean = determineROIDepthDiscMeans(dd_img, roi_polies);
-            if(depth_disc_mean > 0.2f) {
+            if(depth_disc_mean > 0.1f) {
                 line_segment.setDiscontinuity(true);
 
                 /// set edge pose base on roi depths and amount of overlap with contour mask
-                if ((roi_means.first <= roi_means.second) and (countn >= countp))
+                if ((roi_means.first <= roi_means.second) && (countn >= countp))
                     line_segment.setPose(true);
                 else if((roi_means.second <= roi_means.first) && (countp >= countn))
                     line_segment.setPose(false);
@@ -249,9 +249,14 @@ void drawSegmentList(vector<vector<LineSegment>>& contour_segments, int mode){
         if(mode == 1) // random color as default
             color1 = cv::Scalar(rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
         for(auto& line_segment: segment){
-            if(line_segment.isPoseRight() || line_segment.isConvex() || line_segment.isDepthDiscontinuity() || mode == 1){
+            if((line_segment.isPoseRight() && mode == 2) ||
+               (line_segment.isConvex() && mode == 3) ||
+               (line_segment.isDepthDiscontinuity() && mode == 4) ||
+               mode == 1){
                 cv::line(image, line_segment.getStartPos(), line_segment.getEndPos(), color1);
-            }else if(line_segment.isPoseLeft() || line_segment.isConcave() || line_segment.isCurveDiscontinuity()){
+            }else if((line_segment.isPoseLeft() && mode == 2) ||
+                    (line_segment.isConcave() && mode == 3) ||
+                    (line_segment.isCurveDiscontinuity() && mode == 4)){
                 cv::line(image, line_segment.getStartPos(), line_segment.getEndPos(), color2);
             }
         }
@@ -277,7 +282,7 @@ vector<vector<LineSegment>> lineSegmentExtraction(Contours contour_set, double t
                 deviation = maxSegmentDeviation(first, last, contour);
             }
             LineSegment line_segment(contour, std::pair<int, int>(first, last));
-            if(line_segment.getLength() > 10)
+            if(line_segment.getLength() > 1)
                 segments.push_back(line_segment);
 
             first = last;
@@ -286,7 +291,7 @@ vector<vector<LineSegment>> lineSegmentExtraction(Contours contour_set, double t
 
         contour_segments.push_back(segments);
     }
-    drawSegmentList(contour_segments);
+    // drawSegmentList(contour_segments);
     return contour_segments;
 }
 

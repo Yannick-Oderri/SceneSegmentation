@@ -83,7 +83,7 @@ std::pair<cv::Point, cv::Point> LineSegment::asPointPair() {
 }
 
 void LineSegment::setPose(bool val) {
-    this->feature_right_left_ = true;
+    this->feature_right_left_ = val;
 }
 
 void LineSegment::setConvexity(bool val) {
