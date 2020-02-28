@@ -89,3 +89,27 @@ void LineSegment::setPose(bool val) {
 void LineSegment::setConvexity(bool val) {
     this->feature_convex_concave_ = val;
 }
+
+bool LineSegment::isCurveDiscontinuity() {
+    return this->feature_depth_curve_ == false;
+}
+
+bool LineSegment::isDepthDiscontinuity() {
+    return this->feature_depth_curve_ == true;
+}
+
+bool LineSegment::isPoseLeft() {
+    return this->feature_right_left_ == false;
+}
+
+bool LineSegment::isPoseRight() {
+    return this->feature_right_left_ == true;
+}
+
+bool LineSegment::isConcave() {
+    return this->feature_convex_concave_ == false;
+}
+
+bool LineSegment::isConvex() {
+    return this->feature_convex_concave_ == true;
+}

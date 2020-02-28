@@ -334,7 +334,7 @@ void GLEdgeDiscFilter::start() {
 
 //        cv::flip(depth_canny, depth_canny, 0);
 //        cv::flip(depth_canny, depth_canny, 1);
-//        cv::imshow("Depth Edges", depth_canny);
+        cv::imshow("Depth Edges", depth_canny);
 //        cv::waitKey(0);
 
 

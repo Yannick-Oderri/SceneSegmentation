@@ -62,18 +62,63 @@ public:
     tribool getConvexity();
 
     /**
+     * Is line segment convex
+     * @return
+     */
+    bool isConvex();
+
+    /**
+     * Is line segment concave
+     * @return
+     */
+    bool isConcave();
+
+    /**
      * Get locatoin of line segment
      * @return
      */
-    inline tribool getPose();
+    tribool getPose();
+
+    /**
+     * Is Line position right of contour
+     * @return
+     */
+    bool isPoseRight();
+
+    /**
+     * Is Line segment position left of contour
+     * @return
+     */
+    bool isPoseLeft();
 
     /**
      * Get discontinuity of line segment
      * @return
      */
     tribool getDiscontinuity();
+
+    /**
+     * Is line segment depth discontinuity
+     * @return
+     */
+    bool isDepthDiscontinuity();
+
+    /**
+     * Is line segmnet curve discontinuity
+     * @return
+     */
+    bool isCurveDiscontinuity();
+
+    /**
+     * Sets line to depth or curve discontinuity
+     * @param val true for depth false for curve
+     */
     void setDiscontinuity(bool val);
 
+    /**
+     * Return indicies of start and end points held in segmnets contour object
+     * @return
+     */
     std::pair<int, int> getContourIndecies();
 
     /**
@@ -96,10 +141,22 @@ public:
      */
     float proj(LineSegment& rhs);
 
+    /**
+     * Returns pair of cv::Points representing line start and end positions
+     * @return
+     */
     std::pair<cv::Point, cv::Point> asPointPair();
 
+    /**
+     * Set right left line pose
+     * @param b true == right false == left
+     */
     void setPose(bool b);
 
+    /**
+     * Set line convexity
+     * @param b true == convex false == concave
+     */
     void setConvexity(bool b);
 };
 
