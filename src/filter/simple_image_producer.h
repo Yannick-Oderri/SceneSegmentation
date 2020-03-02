@@ -14,6 +14,7 @@
 class SimpleImageProducer: public ProducerPipeFilter<FrameElement* > {
     libfreenect2::Frame* t_image_;
     cv::Mat image_;
+    cv::Mat color_image_;
 
     /** IR camera intrinsic calibration parameters.
    * Kinect v2 includes factory preset values for these parameters. They are used in depth image decoding, and Registration.
@@ -48,10 +49,13 @@ public:
 
     void initialize(){
         std::string file_path = "../data/depth/test0.png";
+        std::string color_img_file_path = "../data/depth/ctest0.png";
         cv::Mat img;
         img = cv::imread(file_path, -1);
 
-        if(img.empty()) {
+        color_image_ = cv::imread(color_img_file_path);
+
+        if(img.empty() || color_image_.empty()) {
             BOOST_LOG_TRIVIAL(error) << "Image " << file_path << ": could not be loaded";
             return;
         }
@@ -81,10 +85,14 @@ public:
                     (float*)buffer,
                     &camera_params);
 
-            out_queue_->push(new FrameElement(cv::Mat(), *depth_content));
+            // Generate Color Image mat
+            cv::Mat t_col;
+            color_image_.copyTo(t_col);
+
+            out_queue_->push(new FrameElement(t_col, *depth_content));
             frame_count++;
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+            std::this_thread::sleep_for(std::chrono::milliseconds(200000));
         }
     }
 

@@ -240,7 +240,7 @@ void GLEdgeDiscFilter::start() {
         // -----
         double currentTime = glfwGetTime();
         frameCount++;
-        BOOST_LOG_TRIVIAL(info) << "PROFILER: " << currentTime-previousTime;
+        //BOOST_LOG_TRIVIAL(info) << "PROFILER: " << currentTime-previousTime;
         previousTime = currentTime;
         if (currentTime - previousTime >= 1){
             std::cout << "Frame Rate: " << frameCount << std::endl;

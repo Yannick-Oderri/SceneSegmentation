@@ -19,8 +19,8 @@ private:
     tribool feature_depth_curve_;
     tribool feature_background_foreground_;
 
-    cv::Point start_pos_;
-    cv::Point end_pos_;
+    cv::Point2f start_pos_;
+    cv::Point2f end_pos_;
     Contour* contour_;
     std::pair<int, int> contour_region_;
 
@@ -35,13 +35,13 @@ public:
      * Get line segment start pos
      * @return
      */
-    cv::Point getStartPos();
+    cv::Point2f getStartPos();
 
     /**
      * Get line segment end pos
      * @return
      */
-    cv::Point getEndPos();
+    cv::Point2f getEndPos();
 
 
     /**
@@ -146,7 +146,7 @@ public:
      * Returns pair of cv::Points representing line start and end positions
      * @return
      */
-    std::pair<cv::Point, cv::Point> asPointPair();
+    std::pair<cv::Point2f, cv::Point2f> asPointPair();
 
     /**
      * Set right left line pose

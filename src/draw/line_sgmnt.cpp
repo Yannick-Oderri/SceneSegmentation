@@ -24,11 +24,11 @@ LineSegment::LineSegment(Contour contour, std::pair<int, int>contour_region):
 
 }
 
-cv::Point LineSegment::getEndPos() {
+cv::Point2f LineSegment::getEndPos() {
     return this->end_pos_;
 }
 
-cv::Point LineSegment::getStartPos() {
+cv::Point2f LineSegment::getStartPos() {
     return this->start_pos_;
 }
 
@@ -59,13 +59,14 @@ void LineSegment::setDiscontinuity(bool val) {
 }
 
 float LineSegment::getAngle() {
-    float res = atan(-this->getSlope());
-    return (res < 0) ? res + 180 : res;
+    cv::Point vec = this->end_pos_ - this->start_pos_;
+    float res = atan2(vec.y, vec.x);
+    return res;
 }
 
 float LineSegment::dot(LineSegment &rhs) {
-    cv::Point l_vec = cv::Point(end_pos_.x - start_pos_.x, end_pos_.y - start_pos_.y);
-    cv::Point r_vec = cv::Point(rhs.end_pos_.x - rhs.start_pos_.x, rhs.end_pos_.y - rhs.start_pos_.y);
+    cv::Point2f l_vec = cv::Point2f(end_pos_.x - start_pos_.x, end_pos_.y - start_pos_.y);
+    cv::Point2f r_vec = cv::Point2f(rhs.end_pos_.x - rhs.start_pos_.x, rhs.end_pos_.y - rhs.start_pos_.y);
     return (float)((l_vec.x * r_vec.x) + (l_vec.y * r_vec.y));
 }
 
@@ -78,8 +79,8 @@ std::pair<int, int> LineSegment::getContourIndecies() {
     return this->contour_region_;
 }
 
-std::pair<cv::Point, cv::Point> LineSegment::asPointPair() {
-    return std::pair<cv::Point, cv::Point>(this->start_pos_, this->end_pos_);
+std::pair<cv::Point2f, cv::Point2f> LineSegment::asPointPair() {
+    return std::pair<cv::Point2f, cv::Point2f>(this->start_pos_, this->end_pos_);
 }
 
 void LineSegment::setPose(bool val) {
