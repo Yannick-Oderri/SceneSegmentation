@@ -17,6 +17,7 @@ private:
     tribool feature_right_left_;
     tribool feature_convex_concave_;
     tribool feature_depth_curve_;
+    tribool feature_background_foreground_;
 
     cv::Point start_pos_;
     cv::Point end_pos_;
@@ -158,6 +159,10 @@ public:
      * @param b true == convex false == concave
      */
     void setConvexity(bool b);
+
+    void setLinePlacement(bool b);
+
+    bool isBackground();
 };
 
 

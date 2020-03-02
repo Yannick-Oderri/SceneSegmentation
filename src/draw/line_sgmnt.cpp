@@ -113,3 +113,11 @@ bool LineSegment::isConcave() {
 bool LineSegment::isConvex() {
     return this->feature_convex_concave_ == true;
 }
+
+void LineSegment::setLinePlacement(bool b) {
+    this->feature_background_foreground_ = b;
+}
+
+bool LineSegment::isBackground() {
+    return this->feature_background_foreground_ == true;
+}

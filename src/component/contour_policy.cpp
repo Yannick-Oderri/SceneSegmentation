@@ -31,15 +31,14 @@ void LineSegmentContourPolicy::executePolicy() {
     FrameElement frame_element = this->current_contour_data_->frame_element;
 
     // Segment Contours
-    vector<vector<LineSegment>> contour_segments =  lineSegmentExtraction(contours, 3.0f);
+    vector<vector<LineSegment>> contour_segments =  lineSegmentExtraction(contours, 10.0f);
 
     // Calculate contour features
     calculateContourFeatures(contour_segments, contours, frame_element);
     // render line feature
-    for(int i = 1; i < 5; i++){
+    for(int i = 1; i <= 1; i++){
         drawSegmentList(contour_segments, i);
     }
-    cv::waitKey(0);
 
     // Pair contours
     vector<LinePair> line_pairs = pairContourSegments(contour_segments, contours);
@@ -62,7 +61,7 @@ void calculateContourFeatures(vector<vector<LineSegment>>& contour_segments, Con
     cv::Mat dd_img = frame_element.getDepthDiscontinuity();
     cv::Mat cd_img = frame_element.getCurveDiscontinuity();
 
-    for(int i = 0; i < contour_segments.size(); i++){
+    for(int i = 3; i < contour_segments.size(); i++){
         auto& contour = contour_set[i];
         auto& segments = contour_segments[i];
         cv::Mat depth_img = frame_element.getDepthFrameData()->getcvMat();
@@ -73,7 +72,7 @@ void calculateContourFeatures(vector<vector<LineSegment>>& contour_segments, Con
         // perform calculation on contour segments
         for(auto& line_segment : segments){
             // Determine Region of interest averages
-            vector<cv::Point> roi_polies = generateWindowCooridnates(line_segment.asPointPair(), 5, 0);
+            vector<cv::Point> roi_polies = generateWindowCooridnates(line_segment.asPointPair(), 10, 0);
             double countp, countn;
             std::pair<int, int> roi_means = determineROIMeans(depth_img, roi_polies, contour_mask, countp, countn);
 
@@ -88,18 +87,21 @@ void calculateContourFeatures(vector<vector<LineSegment>>& contour_segments, Con
                 line_depth_vals.at(i) = depth_val;
             }
 
-            roi_polies = generateWindowCooridnates(line_segment.asPointPair(), 2, 0);
+            roi_polies = generateWindowCooridnates(line_segment.asPointPair(), 3, 0);
             int line_depth_mean = std::count_if(line_depth_vals.begin(), line_depth_vals.end(), [](int i){return i != 0;});
             if(line_depth_mean != 0)
                 line_depth_mean = line_depth_sum / line_depth_mean;
 
             /// Set discontinuity based on depth discontinuity map
             double depth_disc_mean = determineROIDepthDiscMeans(dd_img, roi_polies);
-            if(depth_disc_mean > 0.1f) {
+            if(depth_disc_mean > 0.06f) {
                 line_segment.setDiscontinuity(true);
+                if(abs(roi_means.first - roi_means.second) > 30){
+                    line_segment.setLinePlacement(true);
+                }
 
                 /// set edge pose base on roi depths and amount of overlap with contour mask
-                if ((roi_means.first <= roi_means.second) && (countn >= countp))
+                if ((roi_means.first <= roi_means.second) && (countp >= countn))
                     line_segment.setPose(true);
                 else if((roi_means.second <= roi_means.first) && (countp >= countn))
                     line_segment.setPose(false);
@@ -112,6 +114,7 @@ void calculateContourFeatures(vector<vector<LineSegment>>& contour_segments, Con
                     line_segment.setConvexity(true);
                 else
                     line_segment.setConvexity(false);
+
             }
 
         }
@@ -135,15 +138,15 @@ void drawLinePairs(vector<LinePair>& line_pairs, cv::Mat& color_image){
 
 vector<LinePair> pairContourSegments(vector<vector<LineSegment>>& contour_segments, Contours& contour_set){
     vector<LinePair> line_pairs;
-    for(int i = 0; i < contour_segments.size(); i++){
+    for(int i = 3; i < contour_segments.size(); i++){
         vector<LineSegment>& segments = contour_segments[i];
 
         Combinations cs(segments.size(), 2);
-        vector<int> used_indecies;
+        vector<int> used_indecies(0);
         while(!cs.completed){
             Combinations::combination_t c = cs.next();
-            LineSegment& sgmnt_1 = segments[c[0]];
-            LineSegment& sgmnt_2 = segments[c[1]];
+            LineSegment& sgmnt_1 = segments[c[0] - 1];
+            LineSegment& sgmnt_2 = segments[c[1] - 1];
             // If lines has been used already skip pairing
             if(std::count(used_indecies.begin(), used_indecies.end(), c[0]) != 0||
                std::count(used_indecies.begin(), used_indecies.end(), c[1]) != 0){
@@ -151,7 +154,7 @@ vector<LinePair> pairContourSegments(vector<vector<LineSegment>>& contour_segmen
             }
 
             float dot = sgmnt_1.dot(sgmnt_2);
-            float ang = sgmnt_1.proj(sgmnt_2) / sgmnt_2.getLength();
+            float ang = abs(sgmnt_1.proj(sgmnt_2) / sgmnt_2.getLength());
 
             // length ration
             float len_ratio = 1 - abs((sgmnt_1.getLength() - sgmnt_2.getLength())/ (sgmnt_1.getLength() + sgmnt_2.getLength()));
@@ -159,11 +162,18 @@ vector<LinePair> pairContourSegments(vector<vector<LineSegment>>& contour_segmen
 
             // Check if segments are parallel and equal length
             // abs(1 - abs(sgmnt_1.proj(sgmnt_2))) >= 1.0
-            if( ang <= 0.07f &&
-                len_ratio > 0.6f &&
-                sgmnt_1.getPose() != sgmnt_2.getPose() &&
+            if(
+                //len_ratio > 0.6f &&
+                (sgmnt_1.isPoseLeft() && sgmnt_2.isPoseRight()) || (sgmnt_1.isPoseRight() && sgmnt_2.isPoseLeft()) ||
+                ((boost::logic::indeterminate(sgmnt_1.getPose())) || (boost::logic::indeterminate(sgmnt_2.getPose()))) &&
+                //!(sgmnt_1.isPoseRight() && sgmnt_2.isPoseRight()) &&
+                (ang >= 0.9f) &&
                 sgmnt_1.isConcave() == false &&
-                sgmnt_2.isConcave() == false)  { // perform pairing
+                sgmnt_2.isConcave() == false
+                )  { // perform pairing
+                if(sgmnt_1.isDepthDiscontinuity() && boost::logic::indeterminate(sgmnt_1.getPose()) ||
+                (sgmnt_2.isDepthDiscontinuity() && boost::logic::indeterminate(sgmnt_2.getPose())))
+                    continue;
                 line_pairs.push_back(LinePair(sgmnt_1, sgmnt_2));
                 // Keep track of lines that have been paired already [TODO This method could be imporved]
                 used_indecies.push_back(c[0]);
@@ -236,13 +246,17 @@ void drawSegmentList(vector<vector<LineSegment>>& contour_segments, int mode){
         color2 = cv::Scalar(0, 0, 255);
         name = "pose";
     }else if(mode == 3){ // convex concave render mode
-        color1 = cv::Scalar(255, 0, 255); // magenta
+        color1 = cv::Scalar(255, 255, 255); // magenta
         color2 = cv::Scalar(255, 0, 0);
         name = "convexity";
     }else if(mode == 4){ // depth curve discontinuity
         color1 = cv::Scalar(0, 255, 255);
         color2 = cv::Scalar(255, 255, 0);
         name = "discontinuity";
+    }else if(mode == 5){ // background foreground line segment
+        color1 = cv::Scalar(255, 255, 255);
+        color2 = cv::Scalar(0, 0, 255);
+        name = "background";
     }
 
     for(auto& segment : contour_segments){
@@ -251,18 +265,20 @@ void drawSegmentList(vector<vector<LineSegment>>& contour_segments, int mode){
         for(auto& line_segment: segment){
             if((line_segment.isPoseRight() && mode == 2) ||
                (line_segment.isConvex() && mode == 3) ||
+               (line_segment.isBackground() && mode == 5) ||
                (line_segment.isDepthDiscontinuity() && mode == 4) ||
                mode == 1){
                 cv::line(image, line_segment.getStartPos(), line_segment.getEndPos(), color1);
             }else if((line_segment.isPoseLeft() && mode == 2) ||
                     (line_segment.isConcave() && mode == 3) ||
+                    (line_segment.isBackground() && mode == 5) ||
                     (line_segment.isCurveDiscontinuity() && mode == 4)){
                 cv::line(image, line_segment.getStartPos(), line_segment.getEndPos(), color2);
             }
         }
     }
-
     cv::imshow("Segment Feature: " + name, image);
+
 }
 
 vector<vector<LineSegment>> lineSegmentExtraction(Contours contour_set, double tolerance) {
@@ -361,6 +377,37 @@ std::vector<cv::Point> generateWindowCooridnates(std::pair<cv::Point, cv::Point>
     return win;
 }
 
+std::vector<cv::Point> t_generateWindowCooridnates(std::pair<cv::Point, cv::Point> line, int window_size, int buffer_size){
+    // get perpendicular vector
+    cv::Point vec = line.second - line.first;
+    vec = vec / sqrt(pow(vec.x, 2) + pow(vec.y, 2));
+
+    cv::Point p_vec(-vec.x, vec.y);
+
+    cv::Point pt1 = p_vec * window_size + line.first;
+    cv::Point pt2 = p_vec * -window_size + line.first;
+    cv::Point pt3 = p_vec * window_size + line.second;
+    cv::Point pt4 = p_vec * -window_size + line.second;
+
+    double angle = atan2(vec.x, vec.y);
+
+    vector<cv::Point> win(8);
+
+    // win_p
+    win.at(0) = line.first;
+    win.at(1) = line.second;
+    win.at(2) = pt4;
+    win.at(3) = pt2;
+
+    // win_n
+    win.at(4) = pt1;
+    win.at(5) = pt3;
+    win.at(6) = line.second;
+    win.at(7) = line.first;
+
+    return win;
+}
+
 std::pair<int, int> determineROIMeans(cv::Mat depth_img, vector<cv::Point> roi, cv::Mat& contour_mask, double& contour_overlap_p, double& contour_overlap_n){
     std::pair<int, int> res;
 
@@ -368,11 +415,17 @@ std::pair<int, int> determineROIMeans(cv::Mat depth_img, vector<cv::Point> roi, 
     t_contour.at(0) = vector<cv::Point>(roi.begin(), roi.end() - 4);
     t_contour.at(1) = vector<cv::Point>(roi.begin() + 4, roi.end());
 
+
+    cv::Mat t_mask = cv::Mat::zeros(depth_img.rows, depth_img.cols, CV_32F);
+    contour_mask.copyTo(t_mask);
+
     for(int i = 0; i < 2; i++) {
         cv::Mat mask = cv::Mat::zeros(depth_img.rows, depth_img.cols, CV_32F);
 
         // plot roi
         cv::drawContours(mask, t_contour, i, cv::Scalar(1), -1);
+
+        cv::drawContours(t_mask, t_contour, i, cv::Scalar((i+1)*0.5f), -1);
 
         // determine count
         int count = cv::countNonZero(mask);
@@ -385,6 +438,9 @@ std::pair<int, int> determineROIMeans(cv::Mat depth_img, vector<cv::Point> roi, 
             contour_overlap_n = contour_mask.dot(mask);
         }
     }
+
+    cv::imshow("temp", t_mask);
+    cv::waitKey(0);
 
     return res;
 
@@ -403,6 +459,9 @@ double determineROIDepthDiscMeans(cv::Mat depth_img, vector<cv::Point> roi){
         // plot roi
         cv::drawContours(mask, t_contour, i, cv::Scalar(1), -1);
     }
+
+//    cv::imshow("t_image", mask*255);
+//    cv::waitKey(0);
 
     // determine count
     int count = cv::contourArea(t_contour[0]) * 2;
