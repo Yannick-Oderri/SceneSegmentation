@@ -10,6 +10,10 @@
 #include <libfreenect2/libfreenect2.hpp>
 #include <libfreenect2/registration.h>
 
+// #include "res/resource_mgr.h"
+
+class ResMgr;
+
 class AbstractPipeFilter {
 public:
     virtual void start() = 0;
@@ -22,10 +26,19 @@ protected:
     QueueClient<T_in>* const in_queue_;
     QueueClient<T_out>* const out_queue_;
     bool close_pipe_;
+    ResMgr* const res_mgr_;
 
 public:
     PipeFilter(QueueClient<T_in>* const in_queue, QueueClient<T_out>* const out_queue):
-            in_queue_(in_queue), out_queue_(out_queue){
+            in_queue_(in_queue),
+            out_queue_(out_queue),
+            res_mgr_(nullptr){
+        this->close_pipe_ = false;
+    }
+    PipeFilter(QueueClient<T_in>* const in_queue, QueueClient<T_out>* const out_queue, ResMgr* const res_mgr):
+            in_queue_(in_queue),
+            out_queue_(out_queue),
+            res_mgr_(res_mgr){
         this->close_pipe_ = false;
     }
 
@@ -46,6 +59,8 @@ class ProducerPipeFilter: public PipeFilter<Data, Data> {
 public:
     ProducerPipeFilter(QueueClient<Data>* const out_queue):
         PipeFilter<Data, Data>(nullptr, out_queue){};
+    ProducerPipeFilter(QueueClient<Data>* const out_queue, ResMgr* const res_mgr):
+        PipeFilter<Data, Data>(nullptr, out_queue, res_mgr){}
 
     virtual void start() = 0;
 };

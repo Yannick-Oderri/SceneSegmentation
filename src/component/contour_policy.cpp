@@ -34,7 +34,7 @@ void LineSegmentContourPolicy::executePolicy() {
     FrameElement frame_element = this->current_contour_data_->frame_element;
 
     // Segment Contours
-    vector<vector<LineSegment>> contour_segments =  lineSegmentExtraction(contours, 5.0f);
+    vector<vector<LineSegment>> contour_segments =  lineSegmentExtraction(contours, 10.0f);
 
     // Calculate contour features
     calculateContourFeatures(contour_segments, contours, frame_element);

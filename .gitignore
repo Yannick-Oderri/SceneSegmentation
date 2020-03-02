@@ -31,6 +31,9 @@
 *.out
 *.app
 
+# image data
+data/images/
+
 # build files
 build/
 cmake-build-debug/
@@ -41,3 +44,4 @@ bin/*
 # visual studio code files
 .vscode/
 .idea/
+

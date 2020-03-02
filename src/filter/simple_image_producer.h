@@ -5,16 +5,22 @@
 #ifndef PROJECT_EDGE_SIMPLE_IMAGE_PRODUCER_H
 #define PROJECT_EDGE_SIMPLE_IMAGE_PRODUCER_H
 
-#include "dataflow/pipeline_filter.h"
+// #include <format.h>
 #include <libfreenect2/libfreenect2.hpp>
 #include <opencv2/opencv.hpp>
 #include <boost/log/trivial.hpp>
+
+#include "dataflow/pipeline_filter.h"
+#include "res/resource_mgr.h"
 #include "frame.h"
 
 class SimpleImageProducer: public ProducerPipeFilter<FrameElement* > {
     libfreenect2::Frame* t_image_;
-    cv::Mat image_;
+    cv::Mat depth_image_;
+    cv::Mat ndepth_image_;
     cv::Mat color_image_;
+
+    const int image_idx_;
 
     /** IR camera intrinsic calibration parameters.
    * Kinect v2 includes factory preset values for these parameters. They are used in depth image decoding, and Registration.
@@ -33,8 +39,9 @@ class SimpleImageProducer: public ProducerPipeFilter<FrameElement* > {
     };
 
 public:
-    SimpleImageProducer():
-    ProducerPipeFilter(new QueueClient<FrameElement* >()){}
+    SimpleImageProducer(ResMgr* const res_mgr, int img_idx):
+    ProducerPipeFilter(new QueueClient<FrameElement* >(), res_mgr),
+    image_idx_(img_idx){}
 
     DepthCameraParams getDepthCameraParams(){
         DepthCameraParams camera_params;
@@ -48,42 +55,55 @@ public:
     }
 
     void initialize(){
-        std::string file_path = "../data/depth/test0.png";
-        std::string color_img_file_path = "../data/depth/ctest0.png";
-        cv::Mat img;
-        img = cv::imread(file_path, -1);
-
-        color_image_ = cv::imread(color_img_file_path);
-
-        if(img.empty() || color_image_.empty()) {
-            BOOST_LOG_TRIVIAL(error) << "Image " << file_path << ": could not be loaded";
+        if(this->res_mgr_ == nullptr){
+            BOOST_LOG_TRIVIAL(error) << "Resource Manager not initialized";
             return;
         }
 
-        img.convertTo(image_, CV_32F, 1.0, 0);
+        if(this->image_idx_ < 0){
+            BOOST_LOG_TRIVIAL(error) << "Invalid Image ID";
+            return;
+        }
 
-        t_image_ = new libfreenect2::Frame(image_.cols, image_.rows, sizeof(float), image_.ptr());
+        char name_buff[20];
+        std::sprintf(name_buff, "ctest%d.png", image_idx_);
+        color_image_ = this->res_mgr_->loadColorImage(string(name_buff));
+
+        std::sprintf(name_buff, "test%d.png", image_idx_);
+        cv::Mat t_depth_img = this->res_mgr_->loadDepthImage(string(name_buff));
+
+
+        double min_val, max_val;
+        cv::minMaxLoc(t_depth_img, &min_val, &max_val);
+        t_depth_img.convertTo(depth_image_, CV_32F, 1.0, 0);
+        t_depth_img.convertTo(ndepth_image_, CV_32F, 1.0/max_val, 0);
+
+        t_image_ = new libfreenect2::Frame(depth_image_.cols, depth_image_.rows, sizeof(float), depth_image_.ptr());
     }
 
     void start(){
-        int buffer_size = t_image_->width * t_image_->height * sizeof(float);
+        int depth_buffer_size = depth_image_.cols * depth_image_.rows * sizeof(float);
+        // int color_buffer_size = color_image_.cols * color_image_.rows * sizeof(CV_8UC3)
+
         int frame_count = 0;
         const DepthCameraParams camera_params = this->getDepthCameraParams();
         while(this->close_pipe_ == false){
             BOOST_LOG_TRIVIAL(info) << "Receiving Simple frame: " << frame_count;
 
-            unsigned char* buffer = (unsigned char*)malloc(buffer_size);
-            memcpy(buffer, image_.data, buffer_size);
+            // Copy image to new buffer to feed down pipeline
+            unsigned char* new_depth_buffer = (unsigned char*)malloc(depth_buffer_size);
+            unsigned char* new_ndepth_buffer = (unsigned char*)malloc(depth_buffer_size);
+            memcpy(new_depth_buffer, depth_image_.data, depth_buffer_size);
+            memcpy(new_ndepth_buffer, ndepth_image_.data, depth_buffer_size);
 
-
-            cv::Mat resize_mat(VIEWPORT_HEIGHT, VIEWPORT_WIDTH, CV_32F, buffer);
 
             DepthFrameElement* depth_content  = new DepthFrameElement(
                     t_image_->width,
                     t_image_->height,
                     sizeof(float),
-                    (float*)buffer,
-                    &camera_params);
+                    &camera_params,
+                    (float*)new_depth_buffer,
+                    (float*)new_ndepth_buffer);
 
             // Generate Color Image mat
             cv::Mat t_col;

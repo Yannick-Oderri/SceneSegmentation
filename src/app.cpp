@@ -14,7 +14,7 @@
 
 void generateProcessingPipeline(AppContext* const context){
     /// Image pipeline loader
-    SimpleImageProducer producer;
+    SimpleImageProducer producer(context->getResMgr(), 6);
     producer.initialize();
 
     /// Edge Pipeline
@@ -58,7 +58,7 @@ int main(int argc, char **argv){
 
 
     /// Image pipeline loader
-    SimpleImageProducer producer;
+    SimpleImageProducer producer(app_ctx->getResMgr(), 0);
     producer.initialize();
     std::thread producer_tread(&SimpleImageProducer::start, &producer);
 

@@ -34,13 +34,15 @@ public:
      * @param camera_params
      */
     DepthFrameElement(int width, int height, int channel_size,
+            const DepthCameraParams * camera_params,
             const float* data,
-            const DepthCameraParams * camera_params):
+            const float* ndata = nullptr):
             width_(width),
             height_(height),
             bits_per_channel_(channel_size),
+            depth_camera_params_(camera_params),
             data_(data),
-            depth_camera_params_(camera_params)
+            ndata_(ndata)
             {}
 
     /**
@@ -51,8 +53,9 @@ public:
             width_(cpy.width_),
             height_(cpy.height_),
             bits_per_channel_(cpy.bits_per_channel_),
+            depth_camera_params_(cpy.depth_camera_params_),
             data_(cpy.data_),
-            depth_camera_params_(cpy.depth_camera_params_)
+            ndata_(cpy.ndata_)
             {}
     /**
      * Default Constructor
@@ -61,7 +64,8 @@ public:
             width_(0),
             height_(0),
             bits_per_channel_(0),
-            data_(nullptr){}
+            data_(nullptr),
+            ndata_(nullptr){}
 
     float const* const getData(){
         return this->data_;
@@ -69,6 +73,24 @@ public:
 
     cv::Mat getcvMat(){
         cv::Mat mat(this->height_, this->width_, CV_32F, (char* const)this->data_);
+        return mat;
+    }
+
+    /**
+     * Returns cv::mat object of depth data
+     * @return
+     */
+    cv::Mat getDepthImage(){
+        cv::Mat mat(this->height_, this->width_, CV_32F, (char* const)this->ndata_);
+        return mat;
+    }
+
+    /**
+     * Returns cv::mat object of normalized depth data
+     * @return
+     */
+    cv::Mat getNDepthImage(){
+        cv::Mat mat(this->height_, this->width_, CV_32F, (char* const)this->ndata_);
         return mat;
     }
 
@@ -121,7 +143,8 @@ public:
 
 private:
     /// Private Fields
-    float const* const data_; // Frame Data element
+    float const* const data_; // Depth Data element
+    float const* const ndata_; // Normal Depth data element
     int width_; // Frame width
     int height_; // frame height
     int bits_per_channel_; // bits per pixel

@@ -8,11 +8,13 @@
 #include <string>
 #include "context/context_factory.h"
 #include "shader.hpp"
+#include <opencv2/opencv.hpp>
 
 using namespace std;
 
 const string RES_SHADER_DIR = "shaders";
-const string RES_DEPTH_IMG_DIR = "depth";
+const string RES_DEPTH_IMG_DIR = "images/depth";
+const string RES_COLOR_IMG_DIR = "images/color";
 
 /**
  * Resource Manager
@@ -32,6 +34,22 @@ public:
      * @return Shader Object
      */
     Shader loadShader(string vs, string fs);
+
+    /**
+     * Load Image as OpenCV Mat
+     * @param name File Name
+     * @param flags
+     * @return
+     */
+    cv::Mat loadColorImage(string name, int flags=cv::IMREAD_COLOR);
+
+    /**
+     * Load Image as OpenCV Mat
+     * @param name File Name
+     * @param flags
+     * @return
+     */
+    cv::Mat loadDepthImage(string name, int flags=cv::IMREAD_UNCHANGED);
 
     /**
      * Return resource directory
