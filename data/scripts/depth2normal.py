@@ -8,7 +8,7 @@ Created on Mon Mar  2 17:14:51 2020
 
 import numpy as np
 import cv2 
-
+import sys
 
 def calculate_surface_normals(depth_img):
     shape = (*depth_img.shape[:2], 3)
@@ -58,9 +58,17 @@ def calculate_surface_normals2(depth_img):
     return normal_data
 
 if __name__ == "__main__":
-    depth_img = cv2.imread("./data/img/test0.png", -1)
+    img_idx = sys.argv[1]
+    out_file = None
+    if len(sys.argv) == 3:
+        out_file = sys.argv[2]
+
+    depth_img = cv2.imread(f"../images/depth/test{img_idx}.png", -1)
     normal_map = calculate_surface_normals(depth_img)
 
 
     cv2.imshow("normal img", normal_map)
     cv2.waitKey(0)
+
+    if out_file is not None:
+        cv2.imwrite(out_file, normal_map)
