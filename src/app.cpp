@@ -7,6 +7,7 @@
 #include "viewer/gl_viewport.h"
 #include "res/resource_mgr.h"
 #include "filter/gl_edge_disc_filter.h"
+#include "filter/gl_depth_img_filter.h"
 #include "filter/contour_processor.h"
 #include "component/contour_policy.h"
 
@@ -17,11 +18,13 @@ void generateProcessingPipeline(AppContext* const context){
     SimpleImageProducer producer(context->getResMgr(), 6);
     producer.initialize();
 
-    /// Edge Pipeline
-    GLEdgeDiscFilter dpt_img_fltr(producer.getOutQueue());
-    dpt_img_fltr.initialize();
+    /// Depth Image Pipeline
+    DepthImagePolicy* depth_img_policy = new DepthImagePolicy();
     if (context != nullptr)
-        dpt_img_fltr.setParentContext(context->getGLContext());
+        depth_img_policy->intialize(context);
+
+    GLDepthImageFilter dpt_img_fltr(producer.getOutQueue(), depth_img_policy);
+    dpt_img_fltr.initialize();
 
     /// Contour Filter Pipeline
     ContourProcessorPipeFilter contour_filter(dpt_img_fltr.getOutQueue(), new LineSegmentContourPolicy());
@@ -29,7 +32,7 @@ void generateProcessingPipeline(AppContext* const context){
 
 
     std::thread producer_thread(&SimpleImageProducer::start, &producer);
-    std::thread dpt_fltr_thread(&GLEdgeDiscFilter::start, &dpt_img_fltr);
+    std::thread dpt_fltr_thread(&GLDepthImageFilter::start, &dpt_img_fltr);
     std::thread contour_fltr_thread(&ContourProcessorPipeFilter::start, &contour_filter);
 
     /// End Pipeline

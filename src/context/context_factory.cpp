@@ -2,7 +2,9 @@
 // Created by ynki9 on 2/15/20.
 //
 
+#include <GL/glew.h>
 #include "res/resource_mgr.h"
+
 
 #ifdef WITH_CUDA
 #include <cuda_runtime.h>

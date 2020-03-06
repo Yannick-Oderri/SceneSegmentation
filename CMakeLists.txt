@@ -74,8 +74,11 @@ SET(project_edge_SOURCE
         shader.cpp
 
         filter/gl_edge_disc_filter.cpp
+        filter/gl_depth_img_filter.cpp
         filter/contour_processor.cpp
+
         component/contour_policy.cpp
+        component/depth_img_policy.cpp
 
         dataflow/pipeline.cpp
         dataflow/pipeline_filter.cpp

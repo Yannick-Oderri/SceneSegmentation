@@ -102,7 +102,7 @@ void GLEdgeDiscFilter::start() {
     Shader blur_shader_1("../data/shaders/shader_1.vs", "../data/shaders/bilateral_blur.fs");
     Shader median_blur_shader("../data/shaders/shader_1.vs", "../data/shaders/median_blur.fs");
     Shader sobel_shader("../data/shaders/shader_1.vs", "../data/shaders/sobel.fs");
-    Shader shader("../data/shaders/shader_1.vs", "../data/shaders/shader_1.fs");
+    Shader shader("../data/shaders/shader_1.vs", "../data/shaders/gradientxy.fs");
     shader.enableFramebuffer(true);
     blur_shader_1.enableFramebuffer(true);
     //blur_shader_2.enableFramebuffer(true);
