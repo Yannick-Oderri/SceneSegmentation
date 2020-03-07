@@ -7,10 +7,11 @@
 #include <boost/log/trivial.hpp>
 
 
-DepthImagePolicy::DepthImagePolicy():
+DepthImagePolicy::DepthImagePolicy(AppContext* const app_context):
 framebuffer_width_(VIEWPORT_WIDTH),
 framebuffer_height_(VIEWPORT_HEIGHT),
-frame_element_(nullptr){}
+frame_element_(nullptr),
+app_context_(app_context){}
 
 
 void DepthImagePolicy::executePolicy() {
@@ -25,8 +26,8 @@ void DepthImagePolicy::executePolicy() {
     this->glProcessCurveDiscontinuity(this->parent_window_, frame_element);
 }
 
-void DepthImagePolicy::intialize(AppContext* const ctxt) {
-    this->intializeGLParams(ctxt);
+void DepthImagePolicy::intialize() {
+    this->intializeGLParams(this->app_context_);
 }
 
 void DepthImagePolicy::intializeGLParams(AppContext* const ctxt) {
@@ -41,11 +42,11 @@ void DepthImagePolicy::intializeGLParams(AppContext* const ctxt) {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
     /// Enable Offscreen rendering
-    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+    //glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 
-    this->current_window_ = glfwCreateWindow(framebuffer_width_, framebuffer_height_, "Shader", nullptr, ctxt->getGLContext());
+    this->current_window_ = glfwCreateWindow(framebuffer_width_, framebuffer_height_, "Curve Discontinuity Framebuffer", nullptr, ctxt->getGLContext());
     if (this->current_window_ == NULL){
-        std::cout << "Faineld to create GLFW window" << std::endl;
+        std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
         return;
     }
@@ -63,12 +64,15 @@ void DepthImagePolicy::intializeGLParams(AppContext* const ctxt) {
     this->shdr_median_blur_ = ctxt->getResMgr()->loadShader("shader_1.vs", "median_blur.fs");
     this->shdr_sobel_ = ctxt->getResMgr()->loadShader("shader_1.vs", "sobel.fs");
     this->shdr_bilateral_ = ctxt->getResMgr()->loadShader("shader_1.vs", "bilateral_blur.fs");
+    this->shdr_blk_whte_ = ctxt->getResMgr()->loadShader("shader_1.vs", "black_n_white.fs");
+
 
     // Set all shaders to
     this->shdr_normal_.enableFramebuffer(true);
-    this->shdr_bilateral_.enableFramebuffer(true);
-    this->shdr_median_blur_.enableFramebuffer(true);
-    this->shdr_sobel_.enableFramebuffer(true);
+    //this->shdr_bilateral_.enableFramebuffer(true);
+    //this->shdr_median_blur_.enableFramebuffer(true);
+    //this->shdr_sobel_.enableFramebuffer(true);
+    //this->shdr_blk_whte_.enableFramebuffer(true);
 
 
     err = glGetError();
@@ -157,6 +161,17 @@ void DepthImagePolicy::intializeGLParams(AppContext* const ctxt) {
     this->shdr_sobel_.setMat3("convolutionMatrix_x", x_sobel);
     this->shdr_sobel_.setInt("dmap", 0);
 
+// Setup input image gl texture location
+    GLuint textID;
+    glGenTextures(1, &this->gl_depth_img_id_);
+    //std::cout << glGetError() << std::endl; // returns 0 (no error)
+    glBindTexture(GL_TEXTURE_RECTANGLE, this->gl_depth_img_id_);
+    // std::cout << glGetError() << std::endl; // returns 0 (no error)
+    glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    // generate an empty gl texture location
+    glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_DEPTH_COMPONENT, framebuffer_width_, framebuffer_height_, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+
     double previousTime = glfwGetTime();
     int frameCount = 0;
 }
@@ -167,38 +182,33 @@ void DepthImagePolicy::glProcessCurveDiscontinuity(GLFWwindow* const glContext, 
 
     this->shdr_normal_.use();
 
-    glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 
     /// Duplicate for curve discontinuity
     cv::Mat normalized_dd = frame_element->getDepthFrameData()->getNDepthImage();
+    double min_val, max_val;
+    cv::minMaxLoc(normalized_dd, &min_val, &max_val);
 
     /// Calculate Curve Discontinuity
-    GLuint textID;
-    glGenTextures(1, &textID);
-    //std::cout << glGetError() << std::endl; // returns 0 (no error)
-    glBindTexture(GL_TEXTURE_RECTANGLE, textID);
-    // std::cout << glGetError() << std::endl; // returns 0 (no error)
-    glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_DEPTH_COMPONENT, framebuffer_width_, framebuffer_height_, 0, GL_DEPTH_COMPONENT, GL_FLOAT, normalized_dd.ptr());
+    glBindTexture(GL_TEXTURE_RECTANGLE, this->gl_depth_img_id_);
+    glTexSubImage2D(GL_TEXTURE_RECTANGLE, 0, 0, 0, framebuffer_width_, framebuffer_height_, GL_DEPTH_COMPONENT, GL_FLOAT, normalized_dd.ptr());
     //glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGB, framebuffer_width_, framebuffer_height_, 0, GL_RGB, GL_UNSIGNED_BYTE, image.ptr());
     //glGenerateMipmap(GL_TEXTURE_RECTANGLE);
 
 /// Rendering Routine
     // first pass -- Gradient Shader
     this->shdr_normal_.use();
-    glBindFramebuffer(GL_FRAMEBUFFER, this->shdr_normal_.getFramebuferID());
-    glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glClearColor(0.8f, 0.8f, 0.8f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     // render viewport rectangle
     glActiveTexture(GL_TEXTURE0); // TEXTURE0 image location
-    glBindTexture(GL_TEXTURE_RECTANGLE, textID);
+    glBindTexture(GL_TEXTURE_RECTANGLE, this->gl_depth_img_id_);
     this->shdr_normal_.use();
     glBindVertexArray(this->fb_quad_vao_);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
-    // second pass -- bilateral filter shader
+    // second pass -- black and white
 //    glBindFramebuffer(GL_FRAMEBUFFER, blur_shader_1.getFramebuferID());
 //    glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
 //    glClear(GL_COLOR_BUFFER_BIT);
@@ -221,28 +231,28 @@ void DepthImagePolicy::glProcessCurveDiscontinuity(GLFWwindow* const glContext, 
     // glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
     // fourth pass -- bilateral filter shader
-    glBindFramebuffer(GL_FRAMEBUFFER, this->shdr_bilateral_.getFramebuferID());
-    glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+//    glBindFramebuffer(GL_FRAMEBUFFER, this->shdr_bilateral_.getFramebuferID());
+//    glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+//    glClear(GL_COLOR_BUFFER_BIT);
+//
+//    this->shdr_bilateral_.use();
+//    glBindVertexArray(this->fb_quad_vao_);
+//    glActiveTexture(GL_TEXTURE0); // TEXTURE0 image location
+//    glBindTexture(GL_TEXTURE_RECTANGLE, this->shdr_median_blur_.getFramebufferTextureID());
+//    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+//
+//    // // // fifth pass -- bilateral filter shader
+//    glBindFramebuffer(GL_FRAMEBUFFER, this->shdr_sobel_.getFramebuferID());
+//    glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+//    glClear(GL_COLOR_BUFFER_BIT);
+//
+//    this->shdr_sobel_.use();
+//    glBindVertexArray(this->fb_quad_vao_);
+//    glActiveTexture(GL_TEXTURE0); // TEXTURE0 image location
+//    glBindTexture(GL_TEXTURE_RECTANGLE, this->shdr_median_blur_.getFramebufferTextureID());
+//    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
-    this->shdr_bilateral_.use();
-    glBindVertexArray(this->fb_quad_vao_);
-    glActiveTexture(GL_TEXTURE0); // TEXTURE0 image location
-    glBindTexture(GL_TEXTURE_RECTANGLE, this->shdr_median_blur_.getFramebufferTextureID());
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
-
-    // // // fifth pass -- bilateral filter shader
-    glBindFramebuffer(GL_FRAMEBUFFER, this->shdr_sobel_.getFramebuferID());
-    glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    this->shdr_sobel_.use();
-    glBindVertexArray(this->fb_quad_vao_);
-    glActiveTexture(GL_TEXTURE0); // TEXTURE0 image location
-    glBindTexture(GL_TEXTURE_RECTANGLE, this->shdr_median_blur_.getFramebufferTextureID());
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
-
-//        glfwSwapBuffers(window);
+    //glfwSwapBuffers(current_window_);
     glFlush();
     glfwPollEvents();
 

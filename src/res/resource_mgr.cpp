@@ -18,7 +18,13 @@ Shader ResMgr::loadShader(string vs, string fs) {
     BOOST_LOG_TRIVIAL(info) << "Loading Fragment Shader: " << fs_path;
 
     Shader shdr;
-    shdr.init(vs_path, fs_path);
+    int res = shdr.init(vs_path, fs_path);
+
+    if(res < 0){
+        BOOST_LOG_TRIVIAL(warning) << "Failed to load Shader: " << fs;
+    }
+
+
 
     return shdr;
 }

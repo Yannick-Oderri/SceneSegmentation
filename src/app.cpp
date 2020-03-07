@@ -19,11 +19,7 @@ void generateProcessingPipeline(AppContext* const context){
     producer.initialize();
 
     /// Depth Image Pipeline
-    DepthImagePolicy* depth_img_policy = new DepthImagePolicy();
-    if (context != nullptr)
-        depth_img_policy->intialize(context);
-
-    GLDepthImageFilter dpt_img_fltr(producer.getOutQueue(), depth_img_policy);
+    GLDepthImageFilter dpt_img_fltr(producer.getOutQueue(), new DepthImagePolicy(context));
     dpt_img_fltr.initialize();
 
     /// Contour Filter Pipeline

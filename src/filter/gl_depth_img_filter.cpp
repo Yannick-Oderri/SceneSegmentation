@@ -10,6 +10,8 @@ void GLDepthImageFilter::initialize() {
 }
 
 void GLDepthImageFilter::start() {
+    this->exec_policy->intialize();
+
     while(true){
         getInQueue()->waitData();
         FrameElement* const frame_element = getInQueue()->front();

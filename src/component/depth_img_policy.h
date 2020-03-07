@@ -17,8 +17,11 @@ private:
     Shader shdr_median_blur_;
     Shader shdr_sobel_;
     Shader shdr_bilateral_;
+    Shader shdr_blk_whte_;
     unsigned int fb_quad_vbo_, fb_quad_vao_, fb_quad_ebo_;
+    AppContext* app_context_;
     FrameElement* frame_element_;
+    GLuint gl_depth_img_id_;
     GLFWwindow* parent_window_;
     GLFWwindow* current_window_;
 
@@ -44,13 +47,13 @@ public:
     /**
      * Policy Constructor
      */
-    DepthImagePolicy();
+    DepthImagePolicy(AppContext* const app_context);
 
     /**
      * Policy Initialization routine
      * @param parentContext
      */
-    void intialize(AppContext* const parentContext);
+    void intialize();
 
     /**
      * Policy execution routine
