@@ -42,7 +42,7 @@ void DepthImagePolicy::intializeGLParams(AppContext* const ctxt) {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
     /// Enable Offscreen rendering
-    //glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 
     this->current_window_ = glfwCreateWindow(framebuffer_width_, framebuffer_height_, "Curve Discontinuity Framebuffer", nullptr, ctxt->getGLContext());
     if (this->current_window_ == NULL){
@@ -198,7 +198,7 @@ void DepthImagePolicy::glProcessCurveDiscontinuity(GLFWwindow* const glContext, 
 /// Rendering Routine
     // first pass -- Gradient Shader
     this->shdr_normal_.use();
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, this->shdr_normal_.getFramebufferTextureID());
     glClearColor(0.8f, 0.8f, 0.8f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     // render viewport rectangle
