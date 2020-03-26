@@ -17,7 +17,11 @@ void GLDepthImageFilter::start() {
         FrameElement* const frame_element = getInQueue()->front();
 
         this->exec_policy->setFrameData(frame_element);
-        this->exec_policy->executePolicy();
+        if (this->exec_policy->executePolicy()){
+            this->getOutQueue()->push(exec_policy->getContourAttributes());
+        }
+
+        getInQueue()->pop();
 
     }
 }

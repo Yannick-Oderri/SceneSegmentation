@@ -19,6 +19,7 @@ class SimpleImageProducer: public ProducerPipeFilter<FrameElement* > {
     cv::Mat depth_image_;
     cv::Mat ndepth_image_;
     cv::Mat color_image_;
+    int frame_delay_;
 
     const int image_idx_;
 
@@ -39,9 +40,10 @@ class SimpleImageProducer: public ProducerPipeFilter<FrameElement* > {
     };
 
 public:
-    SimpleImageProducer(ResMgr* const res_mgr, int img_idx):
+    SimpleImageProducer(ResMgr* const res_mgr, int img_idx, int frame_delay=33):
     ProducerPipeFilter(new QueueClient<FrameElement* >(), res_mgr),
-    image_idx_(img_idx){}
+    image_idx_(img_idx),
+    frame_delay_(frame_delay){}
 
     DepthCameraParams getDepthCameraParams(){
         DepthCameraParams camera_params;
@@ -109,10 +111,10 @@ public:
             cv::Mat t_col;
             color_image_.copyTo(t_col);
 
-            out_queue_->push(new FrameElement(t_col, *depth_content));
+            out_queue_->push(new FrameElement(frame_count, t_col, *depth_content));
             frame_count++;
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(200000));
+            std::this_thread::sleep_for(std::chrono::milliseconds(this->frame_delay_));
         }
     }
 

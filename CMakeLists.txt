@@ -43,7 +43,9 @@ IF(NOT DEFINED CMAKE_BUILD_TYPE)
   SET(CMAKE_BUILD_TYPE DEBUG CACHE STRING "Choose: RelWithDebInfo Release Debug MinSizeRel None")
 ENDIF()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -rdynamic")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -g -rdynamic")
+set(CMAKE_CXX_FLAGS_DEBUG "-g")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -248,7 +250,7 @@ IF(ENABLE_BOOST)
   SET(Boost_NO_BOOST_CMAKE ON) # OSX
   FIND_PACKAGE(Boost
           REQUIRED
-          COMPONENTS log thread)
+          COMPONENTS log thread timer)
   IF(Boost_FOUND)
     INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIR})
     LIST(APPEND project_edge_LIBRARIES

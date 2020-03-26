@@ -1,11 +1,12 @@
 #version 400
 
-out vec4 FragColor;
-uniform sampler2DRect dmap;
-in vec2 TexCoords;
+uniform float coeff_values[6];
+// Input texture
+uniform sampler2DRect iChannel0;
 
-uniform vec3 w_rgb;
-uniform vec3 w_ycm;
+out vec4 fragColor;
+
+in vec2 TexCoords;
 
 
 // All components are in the range [0…1], including hue.
@@ -23,26 +24,25 @@ vec3 rgb2hsv(vec3 c)
 
 
 void main() {
-    vec3 rgb = texture(dmap, TexCoords).rgb;
+    vec3 rgb = texture(iChannel0, TexCoords).rgb;
+
+    // Complete black and white conversion
     vec3 hsv = rgb2hsv(rgb);
 
-    float num_coeff = 6;
-    hue_radius = 1 / num_coeff;
-    float hue_vals = {0/6.0, 1/6.0, 2/6.0, 3/6.0, 4/6.0, 5/6.0};
+    float num_coeff = 6.0;
+    float hue_radius = 1.0 / num_coeff;
+    float hue_vals[6] = float[6](0.0/6.0, 1.0/6.0, 2.0/6.0, 3.0/6.0, 4.0/6.0, 5.0/6.0);
+	float lum_coeff = 0.0;
 
+    float w_lum = 0.0;
 
-    float w_lum = 0;
-
-    diffVal     = min(abs(vHueVal[0] - hsv), abs(1 - hsv));
-    lumCoeff    = lumCoeff + (vCoeffValues[0] * max(0, hueRadius - diffVal));
-    for(int i = 0; i < 6; i++){
-        int r = floor(i / 3);
-        int c = mod(i, 3);
-        lumCoeff = lumCoeff + (vCoeffValues[r][c] * max(0, hueRadius - abs(vHueVal[i] - hueVal)));
+    float diff_val = min(abs(hue_vals[0] - hsv[0]), abs(1.0 - hsv[0]));
+	lum_coeff = lum_coeff + (coeff_values[0] * max(0.0, hue_radius - diff_val));
+    for(int i = 0; i < coeff_values.length(); i++){
+        lum_coeff = lum_coeff + (coeff_values[i] * max(0.0, hue_radius - abs(hue_vals[i] - hsv[0])));
     }
 
-    float t_val = mHsl[2] * (1 + lumCoeff);
-
-  fragColor = vec4(t_val, t_val, t_val, 1.0);
+    float t_val = hsv[2] * (1.0 + lum_coeff);
+    fragColor = vec4(t_val, t_val, t_val, 1.0);
 
 }

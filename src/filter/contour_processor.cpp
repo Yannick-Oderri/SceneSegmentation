@@ -12,11 +12,14 @@ void ContourProcessorPipeFilter::initialize() {
 void ContourProcessorPipeFilter::start() {
     while(true){
         getInQueue()->waitData();
-         ContourAttributes* contour_data = getInQueue()->front();
+        ContourAttributes* contour_data = getInQueue()->front();
 
         this->exec_policy->setContourData(contour_data);
+
+
         this->exec_policy->executePolicy();
 
+        getInQueue()->pop();
         
     }
 }

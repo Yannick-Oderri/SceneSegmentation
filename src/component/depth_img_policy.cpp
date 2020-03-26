@@ -6,28 +6,122 @@
 #include "depth_img_policy.h"
 #include <boost/log/trivial.hpp>
 
+#include <imgui.h>
+#include <imgui_impl_opengl3.h>
+#include <imgui_impl_glfw.h>
+
+void updateBWParameters(Shader* const shdr_bw);
 
 DepthImagePolicy::DepthImagePolicy(AppContext* const app_context):
 framebuffer_width_(VIEWPORT_WIDTH),
 framebuffer_height_(VIEWPORT_HEIGHT),
 frame_element_(nullptr),
-app_context_(app_context){}
+app_context_(app_context){
+
+    // Initalize buffer element to store curve discontinuity
+    unsigned char* curve_buffer = (unsigned char*)malloc(framebuffer_width_*framebuffer_height_*sizeof(int));
+    this->curve_disc_buffer_ = cv::Mat(framebuffer_height_, framebuffer_width_, CV_8UC4, curve_buffer);
+}
 
 
-void DepthImagePolicy::executePolicy() {
+bool DepthImagePolicy::executePolicy() {
     FrameElement* const frame_element = this->frame_element_;
     if(frame_element == nullptr){
         BOOST_LOG_TRIVIAL(error) << "Null Frame element passed to Depth Image Policy";
-        return;
+        return false;
     }
 
 
+    cv::Mat curve_disc = this->glProcessCurveDiscontinuity(this->parent_window_, frame_element);
+    cv::Mat depth_disc = this->processDepthDiscontinuity(this->parent_window_, frame_element);
 
-    this->glProcessCurveDiscontinuity(this->parent_window_, frame_element);
+    cv::Mat skel = curve_disc | depth_disc;
+
+    cv::imshow("skel", skel);
+
+    std::vector<std::vector<cv::Point> > t_contours;
+    std::vector<std::vector<cv::Point> > contours;
+    std::vector<cv::Vec4i> hierarchy;
+
+    /// Find contours
+    threshold(skel, skel, 20, 255, cv::THRESH_BINARY );
+    cv::findContours( skel, t_contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_NONE, cv::Point(0, 0) );
+    // ImageFrame *new_frame = new ImageFrame(frame->width, frame->height, 4*sizeof(float), new_buffer);
+    // getOutQueue()->push(new_frame);
+
+
+    /// Draw contours
+    cv::Mat drawing = cv::Mat::zeros( skel.size(), CV_8UC3 );
+    vector<int> to_delete;
+    vector<int> to_add;
+    for( int i = 0; i< t_contours.size(); i++ ) {
+        double area = cv::contourArea(t_contours[i]);
+        if(area < 500) continue;
+        if(hierarchy[i][3] >= 0 && std::find(to_delete.begin(), to_delete.end(), hierarchy[i][3]) == to_delete.end())
+            to_delete.push_back(hierarchy[i][3]);
+
+        to_add.push_back(i);
+        //contours.push_back(t_contours[i]);
+        //cv::Scalar color = cv::Scalar(255,255, 255);
+        //drawContours( drawing, t_contours, i, color, 0.8f, 8, hierarchy, 0, cv::Point() );
+    }
+
+    // Ranges must be sorted!
+    std::sort(to_delete.begin(), to_delete.end());
+    std::sort(to_add.begin(), to_add.end());
+
+    std::vector<int> valid_contour; // Will contain the symmetric difference
+    std::set_symmetric_difference(to_add.begin(), to_add.end(),
+                                  to_delete.begin(), to_delete.end(),
+                                  std::back_inserter(valid_contour));
+
+    // second pass to delete enclosing parent contour
+    for( int contour_index : valid_contour) {
+        contours.push_back(t_contours[contour_index]);
+        cv::Scalar color = cv::Scalar(255,255, 255);
+        drawContours( drawing, t_contours, contour_index, color, 0.8f, 8, hierarchy, 0, cv::Point() );
+    }
+
+    /*if(contour_idx >= 0){
+        cv::Scalar color = cv::Scalar( 255, 20, 20); //rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+        drawContours( drawing, contours, contour_idx, color, 3, 8, hierarchy, 0, cv::Point() );
+
+        std::vector<cv::Point> ransac_results = {performRansacOnCotour(t_image, contours, contour_idx, point, hierarchy)};
+        std::vector<std::vector<cv::Point>> results;
+        results.push_back(ransac_results);
+        cv::fillPoly(drawing, results, cv::Scalar(32, 32, 240));
+    }*/
+
+    /// Show in a window
+//        cv::namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
+    cv::imshow( "Contours", drawing );
+    cv::waitKey(1);
+
+
+    /// Add edge information to frame element
+    frame_element->setEdgeData(depth_disc, curve_disc, drawing);
+
+    /// Push Contour data along with frame data to next stage in pipeline
+    this->contour_attributes_ = new ContourAttributes((*frame_element), contours);
+
+    return true;
 }
 
 void DepthImagePolicy::intialize() {
     this->intializeGLParams(this->app_context_);
+
+    // Initialize Dear ImGui
+    // GL 3.0 + GLSL 130
+    const char* glsl_version = "#version 130";
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO &io = ImGui::GetIO();
+// Setup Platform/Renderer bindings
+    ImGui_ImplGlfw_InitForOpenGL(this->current_window_, true);
+    ImGui_ImplOpenGL3_Init(glsl_version);
+// Setup Dear ImGui style
+    ImGui::StyleColorsDark();
 }
 
 void DepthImagePolicy::intializeGLParams(AppContext* const ctxt) {
@@ -36,13 +130,13 @@ void DepthImagePolicy::intializeGLParams(AppContext* const ctxt) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint( GLFW_DOUBLEBUFFER, GL_FALSE ); // use single buffer to avoid vsync
+    glfwWindowHint( GLFW_DOUBLEBUFFER, GL_TRUE ); // use single buffer to avoid vsync
 
 #ifdef __APPLE__
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
     /// Enable Offscreen rendering
-    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+    //glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 
     this->current_window_ = glfwCreateWindow(framebuffer_width_, framebuffer_height_, "Curve Discontinuity Framebuffer", nullptr, ctxt->getGLContext());
     if (this->current_window_ == NULL){
@@ -72,7 +166,7 @@ void DepthImagePolicy::intializeGLParams(AppContext* const ctxt) {
     //this->shdr_bilateral_.enableFramebuffer(true);
     //this->shdr_median_blur_.enableFramebuffer(true);
     //this->shdr_sobel_.enableFramebuffer(true);
-    //this->shdr_blk_whte_.enableFramebuffer(true);
+    this->shdr_blk_whte_.enableFramebuffer(true);
 
 
     err = glGetError();
@@ -146,6 +240,9 @@ void DepthImagePolicy::intializeGLParams(AppContext* const ctxt) {
     this->shdr_normal_.setMat3("convolutionMatrix_x", x_sobel);
     this->shdr_normal_.setInt("dmap", 0);
 
+    this->shdr_blk_whte_.use();
+    this->shdr_blk_whte_.setInt("iChannel0", 0);
+
     this->shdr_bilateral_.use();
     this->shdr_bilateral_.setVec2("iResolution", glm::vec2(framebuffer_width_, framebuffer_height_));
     this->shdr_bilateral_.setInt("iChannel0", 0);
@@ -177,17 +274,24 @@ void DepthImagePolicy::intializeGLParams(AppContext* const ctxt) {
 }
 
 
-void DepthImagePolicy::glProcessCurveDiscontinuity(GLFWwindow* const glContext, FrameElement* const frame_element) {
+cv::Mat DepthImagePolicy::glProcessCurveDiscontinuity(GLFWwindow* const glContext, FrameElement* const frame_element) {
     glfwMakeContextCurrent(this->current_window_);
+    glfwPollEvents();
 
     this->shdr_normal_.use();
 
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
 
     /// Duplicate for curve discontinuity
     cv::Mat normalized_dd = frame_element->getDepthFrameData()->getNDepthImage();
     double min_val, max_val;
     cv::minMaxLoc(normalized_dd, &min_val, &max_val);
+
+    // feed inputs to dear imgui, start new frame
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
 
     /// Calculate Curve Discontinuity
     glBindTexture(GL_TEXTURE_RECTANGLE, this->gl_depth_img_id_);
@@ -209,65 +313,69 @@ void DepthImagePolicy::glProcessCurveDiscontinuity(GLFWwindow* const glContext, 
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
     // second pass -- black and white
-//    glBindFramebuffer(GL_FRAMEBUFFER, blur_shader_1.getFramebuferID());
-//    glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
-//    glClear(GL_COLOR_BUFFER_BIT);
-//
-//    blur_shader_1.use();
-//    glBindVertexArray(VAO);
-//    glActiveTexture(GL_TEXTURE0); // TEXTURE0 image location
-//    glBindTexture(GL_TEXTURE_RECTANGLE, shader.getFramebufferTextureID());
-//    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
 
-    // // third pass -- bilateral filter shader
-    // glBindFramebuffer(GL_FRAMEBUFFER, blur_shader_2.getFramebuferID());
-    // glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
-    // glClear(GL_COLOR_BUFFER_BIT);
+    this->shdr_blk_whte_.use();
+    glBindVertexArray(this->fb_quad_vao_);
+    glActiveTexture(GL_TEXTURE0); // TEXTURE0 image location
+    glBindTexture(GL_TEXTURE_RECTANGLE, this->shdr_normal_.getFramebufferTextureID());
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
-    // blur_shader_2.use();
-    // glBindVertexArray(VAO);
-    // glActiveTexture(GL_TEXTURE0); // TEXTURE0 image location
-    // glBindTexture(GL_TEXTURE_RECTANGLE, blur_shader_1.getFramebufferTextureID());
-    // glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
-    // fourth pass -- bilateral filter shader
-//    glBindFramebuffer(GL_FRAMEBUFFER, this->shdr_bilateral_.getFramebuferID());
-//    glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
-//    glClear(GL_COLOR_BUFFER_BIT);
-//
-//    this->shdr_bilateral_.use();
-//    glBindVertexArray(this->fb_quad_vao_);
-//    glActiveTexture(GL_TEXTURE0); // TEXTURE0 image location
-//    glBindTexture(GL_TEXTURE_RECTANGLE, this->shdr_median_blur_.getFramebufferTextureID());
-//    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
-//
-//    // // // fifth pass -- bilateral filter shader
-//    glBindFramebuffer(GL_FRAMEBUFFER, this->shdr_sobel_.getFramebuferID());
-//    glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
-//    glClear(GL_COLOR_BUFFER_BIT);
-//
-//    this->shdr_sobel_.use();
-//    glBindVertexArray(this->fb_quad_vao_);
-//    glActiveTexture(GL_TEXTURE0); // TEXTURE0 image location
-//    glBindTexture(GL_TEXTURE_RECTANGLE, this->shdr_median_blur_.getFramebufferTextureID());
-//    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+    // render your GUI
+    updateBWParameters(&this->shdr_blk_whte_);
 
-    //glfwSwapBuffers(current_window_);
+        // Render dear imgui into screen
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+    int display_w, display_h;
+    glfwGetFramebufferSize(this->current_window_, &display_w, &display_h);
+    glViewport(0, 0, display_w, display_h);
+    glfwSwapBuffers(this->current_window_);
     glFlush();
-    glfwPollEvents();
 
+    glReadPixels(0, 0, framebuffer_width_, framebuffer_height_, GL_RGBA, GL_UNSIGNED_BYTE, this->curve_disc_buffer_.ptr());
 
+    std::vector<cv::Mat> channels(4);
+    cv::split(this->curve_disc_buffer_, channels);
 
-    unsigned char* new_buffer = (unsigned char*)malloc(framebuffer_width_*framebuffer_height_*sizeof(int));
-    glReadPixels(0, 0, framebuffer_width_, framebuffer_height_, GL_RGBA, GL_UNSIGNED_BYTE, new_buffer);
-    cv::Mat mat = cv::Mat(framebuffer_height_, framebuffer_width_, CV_8UC4, new_buffer);
+    cv::Mat res;
+    cv::medianBlur(channels[0], channels[1], 5);
+    cv::Canny(channels[1], res, 43.0, 90.0);
 
-
-    cv::imshow("Curve Disc", mat);
-    cv::waitKey(0);
-
+    return res;
 }
 
+
+cv::Mat DepthImagePolicy::processDepthDiscontinuity(GLFWwindow* const glContext, FrameElement* const frame_element){
+    // Calculate Depth Discontinuity
+    cv::Mat t_dimg = frame_element->getDepthFrameData()->getNDepthImage();
+    cv::Mat depth_disc;
+    t_dimg.convertTo(depth_disc, CV_8U, 255, 0);
+
+
+    cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE();
+    clahe->setClipLimit(4);
+    cv::Mat depth_dst;
+
+    clahe->apply(depth_disc, depth_dst);
+    cv::Canny(depth_dst, depth_disc, 43.0, 90.0);
+
+    return depth_disc;
+}
+
+void updateBWParameters(Shader* const shdr_bw){
+    static float bnw_coeffs[6] = {-5.0, -5.0, 5.0, 5.0, -5.0, -5.0};
+    ImGui::Begin("Black and White");
+    ImGui::SliderFloat3("RYG", bnw_coeffs, -5.0, 5.0);
+    ImGui::SliderFloat3("CBM", (bnw_coeffs + 3), -5.0, 5.0);
+    ImGui::End();
+
+    shdr_bw->setFloatv("coeff_values", bnw_coeffs, 6);
+}
 
 
 void DepthImagePolicy::setFrameData(FrameElement *frame_element) {

@@ -21,16 +21,26 @@ private:
     unsigned int fb_quad_vbo_, fb_quad_vao_, fb_quad_ebo_;
     AppContext* app_context_;
     FrameElement* frame_element_;
+    ContourAttributes* contour_attributes_;
     GLuint gl_depth_img_id_;
     GLFWwindow* parent_window_;
     GLFWwindow* current_window_;
+    cv::Mat curve_disc_buffer_;
 
 
     /**
      * Process curve discontinuity
      * @param glContext
      */
-    void glProcessCurveDiscontinuity(GLFWwindow* const glContext, FrameElement* const frame_element);
+    cv::Mat glProcessCurveDiscontinuity(GLFWwindow* const glContext, FrameElement* const frame_element);
+
+    /**
+     * PRocess Dpeth Discontinuity
+     * @param glContext
+     * @param frame_element
+     * @return
+     */
+    cv::Mat processDepthDiscontinuity(GLFWwindow *const glContext, FrameElement *const frame_element);
 
     /**
      * PRocess depth Discontinuity
@@ -58,13 +68,20 @@ public:
     /**
      * Policy execution routine
      */
-    void executePolicy();
+    bool executePolicy();
 
     /**
      * Frame data to be set for each frame to be processed
      * @param frame_element
      */
     void setFrameData(FrameElement* frame_element);
+
+    /**
+     * Return Contour attribtues generate during privious policy execution
+     * @return  ContourAttribute or nullptr
+     */
+    ContourAttributes* getContourAttributes(){return this->contour_attributes_;};
+
 };
 
 

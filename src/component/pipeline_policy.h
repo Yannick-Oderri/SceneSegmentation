@@ -18,7 +18,7 @@ using Contour = vector<cv::Point>;
  * Policies used to perform operations
  */
 class PipelinePolicy {
-    virtual void executePolicy() = 0;
+    virtual bool executePolicy() = 0;
 };
 
 

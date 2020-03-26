@@ -1,0 +1,20 @@
+/home/ynki9/opt/clion-2019.2/bin/cmake/linux/bin/cmake -DCMAKE_BUILD_TYPE=Release -G "CodeBlocks - Unix Makefiles" /home/ynki9/Dev/ucf_research/project_edge
+-- Including Dear imgui /home/ynki9/Dev/ucf_research/project_edge/src/app.cpp;/home/ynki9/Dev/ucf_research/project_edge/src/context/context.cpp;/home/ynki9/Dev/ucf_research/project_edge/src/context/context_factory.cpp;/home/ynki9/Dev/ucf_research/project_edge/src/res/resource_mgr.cpp;/home/ynki9/Dev/ucf_research/project_edge/src/viewer/gl_viewport.cpp;/home/ynki9/Dev/ucf_research/project_edge/src/viewer/gl_camera.cpp;/home/ynki9/Dev/ucf_research/project_edge/src/shader.cpp;/home/ynki9/Dev/ucf_research/project_edge/src/filter/gl_edge_disc_filter.cpp;/home/ynki9/Dev/ucf_research/project_edge/src/filter/gl_depth_img_filter.cpp;/home/ynki9/Dev/ucf_research/project_edge/src/filter/contour_processor.cpp;/home/ynki9/Dev/ucf_research/project_edge/src/component/contour_policy.cpp;/home/ynki9/Dev/ucf_research/project_edge/src/component/depth_img_policy.cpp;/home/ynki9/Dev/ucf_research/project_edge/src/dataflow/pipeline.cpp;/home/ynki9/Dev/ucf_research/project_edge/src/dataflow/pipeline_filter.cpp;/home/ynki9/Dev/ucf_research/project_edge/src/utils/helper.cpp;/home/ynki9/Dev/ucf_research/project_edge/src/draw/drawable.cpp;/home/ynki9/Dev/ucf_research/project_edge/src/draw/line_sgmnt.cpp;/home/ynki9/Dev/ucf_research/project_edge/src/draw/line_pair.cpp;/home/ynki9/Dev/ucf_research/project_edge/extern/imgui/imgui.cpp;/home/ynki9/Dev/ucf_research/project_edge/extern/imgui/imgui_widgets.cpp;/home/ynki9/Dev/ucf_research/project_edge/extern/imgui/imgui_draw.cpp;/home/ynki9/Dev/ucf_research/project_edge/extern/imgui/examples/imgui_impl_opengl3.cpp;/home/ynki9/Dev/ucf_research/project_edge/extern/imgui/examples/imgui_impl_glfw.cpp
+-- glad
+-- glad libs /home/ynki9/Dev/ucf_research/project_edge/extern/glad/include
+-- Boost version: 1.65.1
+-- Found the following Boost libraries:
+--   log
+--   thread
+--   timer
+--   date_time
+--   log_setup
+--   system
+--   filesystem
+--   regex
+--   chrono
+--   atomic
+Finding freenect2
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/ynki9/Dev/ucf_research/project_edge/cmake-build-release

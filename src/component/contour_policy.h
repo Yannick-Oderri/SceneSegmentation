@@ -7,6 +7,7 @@
 
 #include "component/pipeline_policy.h"
 
+
 /**
  * Abstract policy for processing contour data
  */
@@ -17,7 +18,7 @@ public:
      */
     ContourPolicy(){}
     virtual void setContourData(ContourAttributes*) = 0;
-    virtual void executePolicy() = 0;
+    virtual bool executePolicy() = 0;
 };
 
 /**
@@ -34,7 +35,7 @@ public:
     void setContourData(ContourAttributes * contour_data){
         this->current_contour_data_ = contour_data;
     }
-    void executePolicy();
+    bool executePolicy();
 };
 
 #endif //PROJECT_EDGE_CONTOUR_POLICY_H

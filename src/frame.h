@@ -164,15 +164,17 @@ class FrameElement {
     cv::Mat ddiscontinuity_data_;
     cv::Mat cdiscontinuity_data_;
     cv::Mat contour_data_;
+    const int frame_id_;
 
 public:
     /// Constructor
-    FrameElement(ColorFrameElement color_frame_element, DepthFrameElement depth_frame_element):
+    FrameElement(int frame_id, ColorFrameElement color_frame_element, DepthFrameElement depth_frame_element):
             color_frame_element_(color_frame_element),
             depth_frame_element_(depth_frame_element),
             ddiscontinuity_data_(),
             cdiscontinuity_data_(),
-            contour_data_(){}
+            contour_data_(),
+            frame_id_(frame_id){}
 
 
     /// Copy Contructor
@@ -181,7 +183,8 @@ public:
     depth_frame_element_(cpy.depth_frame_element_),
     ddiscontinuity_data_(cpy.ddiscontinuity_data_),
     cdiscontinuity_data_(cpy.cdiscontinuity_data_),
-    contour_data_(cpy.contour_data_){}
+    contour_data_(cpy.contour_data_),
+    frame_id_(cpy.frame_id_){}
 
 
     /**
@@ -250,9 +253,9 @@ public:
      }
 
      /// Constructor
-     ContourAttributes(ColorFrameElement color_data, DepthFrameElement depth_data, vector<vector<cv::Point>> contour_data):
-     frame_element(color_data, depth_data),
-     contours(contour_data){}
+//     ContourAttributes(ColorFrameElement color_data, DepthFrameElement depth_data, vector<vector<cv::Point>> contour_data):
+//     frame_element(color_data, depth_data),
+//     contours(contour_data){}
 
      /// Copy Constructor
      ContourAttributes(FrameElement frame_data, vector<vector<cv::Point>> contour_data):

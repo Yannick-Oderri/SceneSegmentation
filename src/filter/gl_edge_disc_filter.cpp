@@ -308,9 +308,7 @@ void GLEdgeDiscFilter::start() {
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
 
-
-// Calculate Depth Discontinuity
-
+        // Calculate Depth Discontinuity
         cv::Mat t_image(viewport_height_, viewport_width_, CV_32F, dd_frame.data);
         min_val, max_val;
         cv::minMaxLoc(t_image, &min_val, &max_val);

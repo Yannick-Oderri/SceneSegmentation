@@ -62,10 +62,12 @@ public:
     void setMat4(const std::string &name, const glm::mat4 &mat) const;
     // ------------------------------------------------------------------------
     void setMat4f(const std::string &name, float* mat) const;
-
+    // ------------------------------------------------------------------------
+    void setFloatv(const string &name, float *v, int len) const;
 
 private:
     void initializeFramebuffer(const int, int width, int height);
+
 };
   
 #endif
