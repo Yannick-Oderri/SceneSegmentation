@@ -36,7 +36,7 @@ bool LineSegmentContourPolicy::executePolicy() {
     FrameElement frame_element = this->current_contour_data_->frame_element;
 
     // Segment Contours
-    vector<vector<LineSegment>> contour_segments =  lineSegmentExtraction(contours, 10.0f);
+    vector<vector<LineSegment>> contour_segments =  lineSegmentExtraction(contours, 15.0f);
     cv::Mat n_depth_image = frame_element.getDepthFrameData()->getcvMat();
     ContourResult* contour_operation_res = cu_determineROIMean(contour_segments, n_depth_image, 12);
 
@@ -73,7 +73,7 @@ void calculateContourFeatures(vector<vector<LineSegment>>& contour_segments, Con
     cv::Mat cd_img = frame_element.getCurveDiscontinuity();
     cv::Mat ndepth_img = frame_element.getDepthFrameData()->getNDepthImage();
     cv::Mat depth_img = frame_element.getDepthFrameData()->getcvMat();
-
+    cv::Mat t_mat;
     int contour_idx = 0;
 
     for(int i = 0; i < contour_segments.size(); i++){
@@ -81,8 +81,10 @@ void calculateContourFeatures(vector<vector<LineSegment>>& contour_segments, Con
         auto& contour = contour_set[i];
         auto& segments = contour_segments[i];
         // generate contour mask
-        cv::Mat contour_mask(frame_element.getDepthDiscontinuity().rows, frame_element.getDepthDiscontinuity().cols, CV_32F);
-        cv::drawContours(contour_mask, contour_set, i, cv::Scalar(1),  -1);
+//        cv::Mat contour_mask(frame_element.getDepthDiscontinuity().rows, frame_element.getDepthDiscontinuity().cols, CV_32F);
+//        cv::drawContours(contour_mask, contour_set, i, cv::Scalar(1),  -1);
+//        cv::imshow("test", contour_mask);
+//        cv::waitKey(1);
 
         // perform calculation on contour segments
         int segment_index = 0;
@@ -96,8 +98,8 @@ void calculateContourFeatures(vector<vector<LineSegment>>& contour_segments, Con
             double cp, cn;
 //            cp = line_segment.getEndPos().x;
 //            cn = line_segment.getEndPos().y;
-//            float va = depth_img.at<float>((int)contour_details.p_region_mean, (int)contour_details.n_region_mean);
-            //std::pair<int, int> tmean = determineROIMeans(depth_img, roi_polies, contour_mask, cp, cn);
+            float va = depth_img.at<float>((int)line_segment.getEndPos().x, line_segment.getEndPos().y);
+//            std::pair<int, int> tmean = determineROIMeans(depth_img, roi_polies, contour_mask, cp, cn);
 
             std::pair<int, int> contour_indecies = line_segment.getContourIndecies();
             vector<int> line_depth_vals(contour_indecies.second - contour_indecies.first);
@@ -110,11 +112,17 @@ void calculateContourFeatures(vector<vector<LineSegment>>& contour_segments, Con
                 line_depth_vals.at(i) = depth_val;
             }
 
+
+//            frame_element.getColorFrameElement()->copyTo(t_mat);
+//            cv::line(t_mat, line_segment.getStartPos(), line_segment.getEndPos(), cv::Scalar(255, 0, 0));
+//            cv::imshow("test", t_mat);
+//            cv::waitKey(0);
+
             roi_polies = generateWindowCooridnates(line_segment.asPointPair(), 3, 0);
             int line_depth_mean = std::count_if(line_depth_vals.begin(), line_depth_vals.end(), [](int i){return i != 0;});
             if(line_depth_mean != 0)
                 line_depth_mean = line_depth_sum / line_depth_mean;
-
+            line_depth_mean = contour_details.edge_mean;
             /// Set discontinuity based on depth discontinuity map
             double depth_disc_mean = determineROIDepthDiscMeans(dd_img, roi_polies);
             if(depth_disc_mean > 0.06f) {
@@ -138,7 +146,6 @@ void calculateContourFeatures(vector<vector<LineSegment>>& contour_segments, Con
 
             }else{ /// for curve discontinuity base
                 line_segment.setDiscontinuity(false);
-
                 /// set convexity if average line depth is less than or equal roi average
                 if ((line_depth_mean <= roi_means.first) && (line_depth_mean <= roi_means.second))
                     line_segment.setConvexity(true);
@@ -272,7 +279,7 @@ void drawSegmentList(vector<vector<LineSegment>>& contour_segments, int mode){
     boost::timer::auto_cpu_timer profiler_draw_segments("PROFILER: draw_segments \t\t\t Time: %w secs\n");
 
     cv::Mat image = cv::Mat::zeros(480, 640, CV_8UC3);
-    cv::RNG rng(3432764);
+    cv::RNG rng(3212764);
     cv::Scalar color1;
     cv::Scalar color2;
     string name;

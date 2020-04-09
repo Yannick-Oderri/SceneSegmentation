@@ -99,6 +99,7 @@ void contourROIMean_kernel(float4* edges, ContourResult* results, cudaTextureObj
             tex_coord.y += edge.y;
             // sample depth value at point
             int depth_val = (int)tex2D<float>(depth_tex, (int)tex_coord.y, (int)tex_coord.x);
+            result.tval[j] = depth_val;
 
             if(depth_val != 0){
                 p_val_count++;

@@ -16,6 +16,8 @@ struct ContourResult{
     float n_region_count;
     float edge_mean;
     float contour_len;
+
+    int tval[12];
 };
 
 extern "C"
