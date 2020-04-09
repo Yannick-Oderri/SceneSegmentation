@@ -25,7 +25,7 @@ app_context_(app_context){
 
 
 bool DepthImagePolicy::executePolicy() {
-    FrameElement* const frame_element = this->frame_element_;
+    FrameElement* frame_element = this->frame_element_;
     if(frame_element == nullptr){
         BOOST_LOG_TRIVIAL(error) << "Null Frame element passed to Depth Image Policy";
         return false;
@@ -36,8 +36,8 @@ bool DepthImagePolicy::executePolicy() {
     cv::Mat depth_disc = this->processDepthDiscontinuity(this->parent_window_, frame_element);
 
     cv::Mat skel = curve_disc | depth_disc;
+    cv::morphologyEx(skel, skel, cv::MORPH_CLOSE, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3)));
 
-    cv::imshow("skel", skel);
 
     std::vector<std::vector<cv::Point> > t_contours;
     std::vector<std::vector<cv::Point> > contours;
@@ -45,6 +45,7 @@ bool DepthImagePolicy::executePolicy() {
 
     /// Find contours
     threshold(skel, skel, 20, 255, cv::THRESH_BINARY );
+    cv::imshow("skel", skel);
     cv::findContours( skel, t_contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_NONE, cv::Point(0, 0) );
     // ImageFrame *new_frame = new ImageFrame(frame->width, frame->height, 4*sizeof(float), new_buffer);
     // getOutQueue()->push(new_frame);

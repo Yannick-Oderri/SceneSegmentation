@@ -8,6 +8,7 @@
 #include <opencv2/opencv.hpp>
 #include <libfreenect2/libfreenect2.hpp>
 #include <vector>
+#include <stdlib.h>
 
 using namespace std;
 
@@ -81,7 +82,7 @@ public:
      * @return
      */
     cv::Mat getDepthImage(){
-        cv::Mat mat(this->height_, this->width_, CV_32F, (char* const)this->ndata_);
+        cv::Mat mat(this->height_, this->width_, CV_32F, (char* const)this->data_);
         return mat;
     }
 
@@ -185,7 +186,6 @@ public:
     cdiscontinuity_data_(cpy.cdiscontinuity_data_),
     contour_data_(cpy.contour_data_),
     frame_id_(cpy.frame_id_){}
-
 
     /**
      * Depth Frame Element

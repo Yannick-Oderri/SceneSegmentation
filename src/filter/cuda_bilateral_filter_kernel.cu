@@ -127,7 +127,7 @@ void initTexture(int width, int height, uint *hImage)
 
 //texture<uchar4, 2, cudaReadModeNormalizedFloat> rgbaTex;
     cudaChannelFormatDesc desc = cudaCreateChannelDesc<uchar4>();
-    cudaResourceDesc            texRes;
+    cudaResourceDesc texRes;
     memset(&texRes,0,sizeof(cudaResourceDesc));
 
     texRes.resType          = cudaResourceTypePitch2D;

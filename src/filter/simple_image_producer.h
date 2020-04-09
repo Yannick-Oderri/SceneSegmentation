@@ -9,7 +9,7 @@
 #include <libfreenect2/libfreenect2.hpp>
 #include <opencv2/opencv.hpp>
 #include <boost/log/trivial.hpp>
-
+#include <thread>
 #include "dataflow/pipeline_filter.h"
 #include "res/resource_mgr.h"
 #include "frame.h"
@@ -69,10 +69,10 @@ public:
 
         char name_buff[20];
         std::sprintf(name_buff, "ctest%d.png", image_idx_);
-        color_image_ = this->res_mgr_->loadColorImage(string(name_buff));
+        color_image_ = this->res_mgr_->loadColorImage(string(name_buff), cv::IMREAD_COLOR);
 
         std::sprintf(name_buff, "test%d.png", image_idx_);
-        cv::Mat t_depth_img = this->res_mgr_->loadDepthImage(string(name_buff));
+        cv::Mat t_depth_img = this->res_mgr_->loadDepthImage(string(name_buff), cv::IMREAD_UNCHANGED);
 
 
         double min_val, max_val;
@@ -83,37 +83,48 @@ public:
         t_image_ = new libfreenect2::Frame(depth_image_.cols, depth_image_.rows, sizeof(float), depth_image_.ptr());
     }
 
-    void start(){
+
+
+    FrameElement* generateCurrentFrame(int frame_idx = 0) {
         int depth_buffer_size = depth_image_.cols * depth_image_.rows * sizeof(float);
         // int color_buffer_size = color_image_.cols * color_image_.rows * sizeof(CV_8UC3)
 
-        int frame_count = 0;
         const DepthCameraParams camera_params = this->getDepthCameraParams();
+
+
+        // Copy image to new buffer to feed down pipeline
+        unsigned char *new_depth_buffer = (unsigned char *) malloc(depth_buffer_size);
+        unsigned char *new_ndepth_buffer = (unsigned char *) malloc(depth_buffer_size);
+//        memcpy(new_depth_buffer, depth_image_.data, depth_buffer_size);
+//        memcpy(new_ndepth_buffer, ndepth_image_.data, depth_buffer_size);
+
+        new_depth_buffer = depth_image_.data;
+        new_ndepth_buffer = ndepth_image_.data;
+
+        DepthFrameElement *depth_content = new DepthFrameElement(
+                t_image_->width,
+                t_image_->height,
+                sizeof(float),
+                &camera_params,
+                (float *) new_depth_buffer,
+                (float *) new_ndepth_buffer);
+
+        // Generate Color Image mat
+        cv::Mat t_col;
+        color_image_.copyTo(t_col);
+
+        return new FrameElement(frame_idx, t_col, *depth_content);
+    }
+
+    void start(){
+        int frame_count = 0;
         while(this->close_pipe_ == false){
             BOOST_LOG_TRIVIAL(info) << "Receiving Simple frame: " << frame_count;
 
-            // Copy image to new buffer to feed down pipeline
-            unsigned char* new_depth_buffer = (unsigned char*)malloc(depth_buffer_size);
-            unsigned char* new_ndepth_buffer = (unsigned char*)malloc(depth_buffer_size);
-            memcpy(new_depth_buffer, depth_image_.data, depth_buffer_size);
-            memcpy(new_ndepth_buffer, ndepth_image_.data, depth_buffer_size);
+            FrameElement* frame_element = this->generateCurrentFrame(frame_count);
+            out_queue_->push(frame_element);
 
-
-            DepthFrameElement* depth_content  = new DepthFrameElement(
-                    t_image_->width,
-                    t_image_->height,
-                    sizeof(float),
-                    &camera_params,
-                    (float*)new_depth_buffer,
-                    (float*)new_ndepth_buffer);
-
-            // Generate Color Image mat
-            cv::Mat t_col;
-            color_image_.copyTo(t_col);
-
-            out_queue_->push(new FrameElement(frame_count, t_col, *depth_content));
             frame_count++;
-
             std::this_thread::sleep_for(std::chrono::milliseconds(this->frame_delay_));
         }
     }

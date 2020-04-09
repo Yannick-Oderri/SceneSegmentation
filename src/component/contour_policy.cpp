@@ -8,6 +8,7 @@
 #include <utility>
 #include <utils/helper.h>
 #include <math.h>
+#include "cu_contour_opr.h"
 
 #include <boost/log/trivial.hpp>
 #include <boost/timer/timer.hpp>
@@ -21,7 +22,7 @@ using namespace std;
 
 // Forward Declarations
 vector<vector<LineSegment>>  lineSegmentExtraction(Contours contour_set, double tolerance);
-void calculateContourFeatures(vector<vector<LineSegment>>& contour_segments, Contours contour_set, FrameElement&);
+void calculateContourFeatures(vector<vector<LineSegment>>& contour_segments, Contours contour_set, FrameElement&, ContourResult* const);
 vector<LinePair> pairContourSegments(vector<vector<LineSegment>>& contour_segments, Contours& contour_set);
 void drawLinePairs(vector<LinePair>& line_pairs, cv::Mat& color_image);
 void drawSegmentList(vector<vector<LineSegment>>& contour_segments, int mode = 1);
@@ -36,10 +37,12 @@ bool LineSegmentContourPolicy::executePolicy() {
 
     // Segment Contours
     vector<vector<LineSegment>> contour_segments =  lineSegmentExtraction(contours, 10.0f);
+    cv::Mat n_depth_image = frame_element.getDepthFrameData()->getcvMat();
+    ContourResult* contour_operation_res = cu_determineROIMean(contour_segments, n_depth_image, 12);
 
 
     // Calculate contour features
-    calculateContourFeatures(contour_segments, contours, frame_element);
+    calculateContourFeatures(contour_segments, contours, frame_element, contour_operation_res);
     // render line feature
     for(int i = 1; i <= 4; i++){
         drawSegmentList(contour_segments, i);
@@ -64,12 +67,14 @@ void mergeLines(vector<LineSegment> segments, FrameElement& frame_element){
  * @param contour_set
  * @param ddiscontinuity_map
  */
-void calculateContourFeatures(vector<vector<LineSegment>>& contour_segments, Contours contour_set, FrameElement& frame_element){
+void calculateContourFeatures(vector<vector<LineSegment>>& contour_segments, Contours contour_set, FrameElement& frame_element, ContourResult* const contour_opr_results){
     boost::timer::auto_cpu_timer profiler_contour_features("PROFILER: contour_features \t\t\t Time: %w secs\n");
     cv::Mat dd_img = frame_element.getDepthDiscontinuity();
     cv::Mat cd_img = frame_element.getCurveDiscontinuity();
     cv::Mat ndepth_img = frame_element.getDepthFrameData()->getNDepthImage();
     cv::Mat depth_img = frame_element.getDepthFrameData()->getcvMat();
+
+    int contour_idx = 0;
 
     for(int i = 0; i < contour_segments.size(); i++){
         // BOOST_LOG_TRIVIAL(info) << "Contour : " << i;
@@ -85,8 +90,14 @@ void calculateContourFeatures(vector<vector<LineSegment>>& contour_segments, Con
             // Determine Region of interest averages
             // BOOST_LOG_TRIVIAL(info) << "Line Segment: " << ++segment_index;
             vector<cv::Point2f> roi_polies = generateWindowCooridnates(line_segment.asPointPair(), 11, 0);
-            double countp, countn;
-            std::pair<int, int> roi_means = determineROIMeans(ndepth_img, roi_polies, contour_mask, countp, countn);
+            float countp, countn;
+            ContourResult& contour_details = contour_opr_results[contour_idx];
+            std::pair<float, float> roi_means(contour_details.p_region_mean, contour_details.n_region_mean);
+            double cp, cn;
+//            cp = line_segment.getEndPos().x;
+//            cn = line_segment.getEndPos().y;
+//            float va = depth_img.at<float>((int)contour_details.p_region_mean, (int)contour_details.n_region_mean);
+            //std::pair<int, int> tmean = determineROIMeans(depth_img, roi_polies, contour_mask, cp, cn);
 
             std::pair<int, int> contour_indecies = line_segment.getContourIndecies();
             vector<int> line_depth_vals(contour_indecies.second - contour_indecies.first);
@@ -120,7 +131,7 @@ void calculateContourFeatures(vector<vector<LineSegment>>& contour_segments, Con
                 if ((roi_means.first <= roi_means.second) && (line_segment.getAngle() >= 0))
                     line_segment.setPose(false); // left
                 else if((roi_means.first <= roi_means.second) && (line_segment.getAngle() < 0))
-                    line_segment.setPose(true);
+                    line_segment.setPose(true); // right
                 else{
 //                    BOOST_LOG_TRIVIAL(info) << "Invalid Line";
                 }
@@ -135,7 +146,7 @@ void calculateContourFeatures(vector<vector<LineSegment>>& contour_segments, Con
                     line_segment.setConvexity(false);
 
             }
-
+            contour_idx++;
         }
     }
 }
@@ -151,8 +162,8 @@ void drawLinePairs(vector<LinePair>& line_pairs, cv::Mat& color_image){
         cv::line(color_image, sgmnt_2.getStartPos(), sgmnt_2.getEndPos(), color);
     }
 
-    // cv::imshow("Paired Lines", color_image);
-    // cv::waitKey(1);
+    cv::imshow("Paired Lines", color_image);
+    cv::waitKey(1);
 }
 
 vector<LinePair> pairContourSegments(vector<vector<LineSegment>>& contour_segments, Contours& contour_set){
@@ -302,7 +313,7 @@ void drawSegmentList(vector<vector<LineSegment>>& contour_segments, int mode){
             }
         }
     }
-    // cv::imshow("Segment Feature: " + name, image);
+     cv::imshow("Segment Feature: " + name, image);
 
 }
 

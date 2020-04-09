@@ -41,7 +41,7 @@ public:
      * @param flags
      * @return
      */
-    cv::Mat loadColorImage(string name, int flags=cv::IMREAD_COLOR);
+    virtual cv::Mat loadColorImage(string name, int flags=cv::IMREAD_COLOR);
 
     /**
      * Load Image as OpenCV Mat
@@ -49,13 +49,15 @@ public:
      * @param flags
      * @return
      */
-    cv::Mat loadDepthImage(string name, int flags=cv::IMREAD_UNCHANGED);
+    virtual cv::Mat loadDepthImage(string name, int flags=cv::IMREAD_UNCHANGED);
 
     /**
      * Return resource directory
      * @return
      */
     string getResourceDir();
+protected:
+    ResMgr(){};
 
 private:
     string res_dir_;

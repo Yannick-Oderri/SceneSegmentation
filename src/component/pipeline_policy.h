@@ -6,6 +6,7 @@
 #define PROJECT_EDGE_PIPELINEPOLICY_H
 
 #include <opencv2/opencv.hpp>
+#include "draw/line_sgmnt.h"
 #include <vector>
 #include "frame.h"
 

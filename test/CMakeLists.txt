@@ -18,7 +18,7 @@ MACRO(PACKAGE_ADD_TEST TESTNAME)
     # create an exectuable in which the tests will be stored
     ADD_EXECUTABLE(${TESTNAME}
             ${ARGN}
-            ${project_edge_src}
+            ${project_edge_src_test}
     )
 
     TARGET_INCLUDE_DIRECTORIES(${TESTNAME} PUBLIC
@@ -40,4 +40,4 @@ MACRO(PACKAGE_ADD_TEST TESTNAME)
 ENDMACRO()
 
 # PACKAGE_ADD_TEST(app_test freenect_filter_test.cpp)
-PACKAGE_ADD_TEST(app_test cuda_sobel_filter_test.cpp)
+PACKAGE_ADD_TEST(app_test cuda_contour_operation_test.cpp)

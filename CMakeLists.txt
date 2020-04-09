@@ -3,7 +3,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 3.11)
 # ========================================================
 # = Project Options
 # ========================================================
-OPTION(ENABLE_CUDA "Enable CUDA support" OFF)
+OPTION(ENABLE_CUDA "Enable CUDA support" ON)
 OPTION(ENABLE_IMGUI "Enable Dear IMGUI support" ON)
 OPTION(ENABLE_QT "Enable Qt UI" OFF)
 OPTION(ENABLE_OPENGL "Enable OpenGL support" ON)
@@ -81,6 +81,7 @@ SET(project_edge_SOURCE
 
         component/contour_policy.cpp
         component/depth_img_policy.cpp
+        component/cuda_contour_operations.cu
 
         dataflow/pipeline.cpp
         dataflow/pipeline_filter.cpp
@@ -114,20 +115,8 @@ PREPEND(project_edge_hdr "${CMAKE_SOURCE_DIR}/src" ${project_edge_HEADERS})
 
 
 SET(project_edge_SOURCE_TEST
-        dataflow/pipeline.cpp
-        dataflow/pipeline_filter.cpp
-        filter/gl_edge_disc_filter.cpp
-        filter/contour_processor.cpp
-        shader.cpp
-        context.cpp
 )
 SET(project_edge_HEADERS_TEST
-        dataflow/pipeline.h
-        dataflow/pipeline_filter.h
-        kinect_bridge_producer.h
-        gl_edge_disc_filter.h
-        shader.h
-        cuda_sobel_filter.h
 )
 
 IF(PACKAGE_TESTS)
@@ -304,9 +293,18 @@ ENDIF()
 IF(PACKAGE_TESTS)
   ADD_DEFINITIONS(-DAS_LIB=1)
   ADD_LIBRARY(project_edge_lib
-          ${project_edge_src_test})
+          ${project_edge_src})
+  TARGET_COMPILE_FEATURES(project_edge_lib
+          PUBLIC cxx_std_14)
+  SET_TARGET_PROPERTIES(project_edge_lib
+          PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
   TARGET_LINK_LIBRARIES(project_edge_lib
           ${project_edge_LIBRARIES}
+  )
+  TARGET_INCLUDE_DIRECTORIES(
+          project_edge_lib
+          PRIVATE
+          ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
   )
 
   ENABLE_TESTING()
