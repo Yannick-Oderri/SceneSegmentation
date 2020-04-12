@@ -369,10 +369,13 @@ cv::Mat DepthImagePolicy::processDepthDiscontinuity(GLFWwindow* const glContext,
 }
 
 void updateBWParameters(Shader* const shdr_bw){
-    static float bnw_coeffs[6] = {-5.0, -5.0, 5.0, 5.0, -5.0, -5.0};
+    float val = 5.0;
+    float min = -10.0;
+    float max = 10.0;
+    static float bnw_coeffs[6] = {-val, -val, val, val, -val, -val};
     ImGui::Begin("Black and White");
-    ImGui::SliderFloat3("RYG", bnw_coeffs, -5.0, 5.0);
-    ImGui::SliderFloat3("CBM", (bnw_coeffs + 3), -5.0, 5.0);
+    ImGui::SliderFloat3("RYG", bnw_coeffs, min, max);
+    ImGui::SliderFloat3("CBM", (bnw_coeffs + 3), min, max);
     ImGui::End();
 
     shdr_bw->setFloatv("coeff_values", bnw_coeffs, 6);

@@ -35,50 +35,50 @@ public:
      * Get line segment start pos
      * @return
      */
-    cv::Point2f getStartPos();
+    cv::Point2f getStartPos() const;
 
     /**
      * Get line segment end pos
      * @return
      */
-    cv::Point2f getEndPos();
+    cv::Point2f getEndPos() const ;
 
 
     /**
      * get slope of line segment
      * @return
      */
-    float getSlope();
+    float getSlope() const;
 
     /**
      * get length of line segment
      * @return
      */
-    float getLength();
+    float getLength() const;
 
     /**
      * Get Convexity of Line segment
      * @return
      */
-    tribool getConvexity();
+    tribool getConvexity() const;
 
     /**
      * Is line segment convex
      * @return
      */
-    bool isConvex();
+    bool isConvex() const;
 
     /**
      * Is line segment concave
      * @return
      */
-    bool isConcave();
+    bool isConcave() const;
 
     /**
      * Get locatoin of line segment
      * @return
      */
-    tribool getPose();
+    tribool getPose() const;
 
     /**
      * Is Line position right of contour
@@ -96,7 +96,7 @@ public:
      * Get discontinuity of line segment
      * @return
      */
-    tribool getDiscontinuity();
+    tribool getDiscontinuity() const;
 
     /**
      * Is line segment depth discontinuity
@@ -126,7 +126,7 @@ public:
      * Get angle of line segment with horizontal
      * @return
      */
-    float getAngle();
+    float getAngle() const;
 
     /**
      * Returns dot product between 2 lines
@@ -163,6 +163,12 @@ public:
     void setLinePlacement(bool b);
 
     bool isBackground();
+
+    /**
+     * Returns normalized orientation of line segment
+     * @return
+     */
+    cv::Point2f getOrientation();
 };
 
 

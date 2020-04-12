@@ -29,30 +29,33 @@ void drawSegmentList(vector<vector<LineSegment>>& contour_segments, int mode = 1
 std::vector<cv::Point2f> generateWindowCooridnates(std::pair<cv::Point2f, cv::Point2f> line, int window_size, int buffer_size);
 std::pair<int, int> determineROIMeans(cv::Mat depth_img, vector<cv::Point2f> roi, cv::Mat& contour_mask, double& contour_overlap_p, double& contour_overlap_n);
 double determineROIDepthDiscMeans(cv::Mat depth_img, vector<cv::Point2f> roi);
+cv::Mat getSegmentVectorRepresentation(LineSegment& segment, bool invert_pose=false);
 
 
 bool LineSegmentContourPolicy::executePolicy() {
+    boost::timer::auto_cpu_timer profiler_contour_policy("PROFILER: Contour Policy \t\t\t Time: %w secs\n");
+
     Contours contours = this->current_contour_data_->contours;
     FrameElement frame_element = this->current_contour_data_->frame_element;
 
     // Segment Contours
-    vector<vector<LineSegment>> contour_segments =  lineSegmentExtraction(contours, 15.0f);
+    vector<vector<LineSegment>> contour_segments =  lineSegmentExtraction(contours, 10.0f);
     cv::Mat n_depth_image = frame_element.getDepthFrameData()->getcvMat();
-    ContourResult* contour_operation_res = cu_determineROIMean(contour_segments, n_depth_image, 12);
+    ContourResult* contour_operation_res = cu_determineROIMean(contour_segments, n_depth_image, 8);
 
 
     // Calculate contour features
     calculateContourFeatures(contour_segments, contours, frame_element, contour_operation_res);
     // render line feature
     for(int i = 1; i <= 4; i++){
-        drawSegmentList(contour_segments, i);
+        // drawSegmentList(contour_segments, i);
     }
 
     // Pair contours
     vector<LinePair> line_pairs = pairContourSegments(contour_segments, contours);
     cv::Mat drawing = cv::Mat::zeros( frame_element.getContourFrame().size(), CV_8UC3 );
     frame_element.getColorFrameElement()->copyTo(drawing);
-    drawLinePairs(line_pairs, drawing);
+//    drawLinePairs(line_pairs, drawing);
 
     return true;
 }
@@ -159,7 +162,7 @@ void calculateContourFeatures(vector<vector<LineSegment>>& contour_segments, Con
 }
 
 void drawLinePairs(vector<LinePair>& line_pairs, cv::Mat& color_image){
-    cv::RNG rng(3432764);
+    cv::RNG rng(time(NULL));
 
     for(auto line_pair: line_pairs){
         cv::Scalar color = cv::Scalar(rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
@@ -180,45 +183,56 @@ vector<LinePair> pairContourSegments(vector<vector<LineSegment>>& contour_segmen
     for(int i = 0; i < contour_segments.size(); i++){
         vector<LineSegment>& segments = contour_segments[i];
 
+        // generate combiniaitorial: from n_segments choose 2
         Combinations cs(segments.size(), 2);
+        // Keeps track of indicies being used when pairing
         vector<int> used_indecies(0);
-        while(!cs.completed){
+        // Keeps track of correlated scores
+        vector<pair<pair<int,int>, double>> correlation_set;
+
+        // Sort segments in contour
+        sort(segments.begin(), segments.end(),
+                [](LineSegment& a, LineSegment& b) -> bool{
+            return a.getLength() > b.getLength();
+        });
+
+        // Search through all possible combinations
+        while(!cs.completed) {
             Combinations::combination_t c = cs.next();
-            LineSegment& sgmnt_1 = segments[c[0] - 1];
-            LineSegment& sgmnt_2 = segments[c[1] - 1];
+            LineSegment &sgmnt_1 = segments[c[0] - 1];
+            LineSegment &sgmnt_2 = segments[c[1] - 1];
+
+            cv::Mat vec_1 = getSegmentVectorRepresentation(sgmnt_1, true);
+            cv::Mat vec_2 = getSegmentVectorRepresentation(sgmnt_2, false);
+
+            double correlation_score = vec_1.dot(vec_2);
+
+            pair<pair<int, int>, double> t_pair(pair<int, int>(c[0] - 1, c[1] - 1), correlation_score);
+            correlation_set.push_back(t_pair);
+        }
+
+        sort(correlation_set.begin(), correlation_set.end(),
+                [](pair<pair<int, int>, double>& a, pair<pair<int, int>, double>& b) -> bool{
+            return a.second > b.second;
+        });
+
+        for(auto& score_desc: correlation_set) {
+            pair<int, int> pair_id = score_desc.first;
+            double score = score_desc.second;
+            LineSegment& sgmnt_1 = segments[pair_id.first];
+            LineSegment& sgmnt_2 = segments[pair_id.second];
+
             // If lines has been used already skip pairing
-            if(std::count(used_indecies.begin(), used_indecies.end(), c[0]) != 0||
-               std::count(used_indecies.begin(), used_indecies.end(), c[1]) != 0){
+            if(std::count(used_indecies.begin(), used_indecies.end(), pair_id.first) != 0 ||
+               std::count(used_indecies.begin(), used_indecies.end(), pair_id.second) != 0 ||
+               score <= 0){
                 continue;
             }
 
-            float dot = sgmnt_1.dot(sgmnt_2);
-            float ang = abs(sgmnt_1.proj(sgmnt_2) / sgmnt_2.getLength());
-
-            // length ration
-            float len_ratio = 1 - abs((sgmnt_1.getLength() - sgmnt_2.getLength())/ (sgmnt_1.getLength() + sgmnt_2.getLength()));
-
-
-            // Check if segments are parallel and equal length
-            // abs(1 - abs(sgmnt_1.proj(sgmnt_2))) >= 1.0
-            if(
-                len_ratio > 0.6f &&
-                (sgmnt_1.isPoseLeft() && sgmnt_2.isPoseRight()) || (sgmnt_1.isPoseRight() && sgmnt_2.isPoseLeft()) ||
-                ((boost::logic::indeterminate(sgmnt_1.getPose())) || (boost::logic::indeterminate(sgmnt_2.getPose()))) &&
-                //!(sgmnt_1.isPoseRight() && sgmnt_2.isPoseRight()) &&
-                (ang >= 0.9f) &&
-                sgmnt_1.isConcave() == false &&
-                sgmnt_2.isConcave() == false
-                )  { // perform pairing
-                if(sgmnt_1.isDepthDiscontinuity() && boost::logic::indeterminate(sgmnt_1.getPose()) ||
-                (sgmnt_2.isDepthDiscontinuity() && boost::logic::indeterminate(sgmnt_2.getPose())))
-                    continue;
-                line_pairs.push_back(LinePair(sgmnt_1, sgmnt_2));
-                // Keep track of lines that have been paired already [TODO This method could be imporved]
-                used_indecies.push_back(c[0]);
-                used_indecies.push_back(c[1]);
-            }
-        }
+            line_pairs.push_back(LinePair(sgmnt_1, sgmnt_2));
+            used_indecies.push_back(pair_id.first);
+            used_indecies.push_back(pair_id.second);
+    }
     }
 
     return line_pairs;
@@ -530,4 +544,48 @@ double determineROIDepthDiscMeans(cv::Mat depth_img, vector<cv::Point2f> roi){
     double mask_sum = depth_img.dot(mask) / 255;
     return mask_sum/count;
 
+}
+
+cv::Mat getSegmentVectorRepresentation(LineSegment& segment, bool invert_pose){
+    int vec_count = 7;
+
+    // Lengith Representation
+    float LENGTH_WEIGHT = 0.008;
+    float segment_len_rep = segment.getLength();
+
+
+    // Orientation Representation
+    float ORIENTATION_WEIGHT = 6.0f;
+    cv::Point orientation = segment.getOrientation();
+
+    // Line segment pose rep
+    float POSE_REP_WEIGHT = 1.0f;
+    float pose_rep = segment.isPoseRight() ? 1.0 : 0;
+    pose_rep = segment.isPoseLeft() ? -1.0 : 0;
+    pose_rep = invert_pose ? pose_rep * -1.0: pose_rep;
+
+    //
+    float DEPTH_DISC_REP_WEIGHT = 0.1;
+    float depth_dis_rep = segment.isDepthDiscontinuity() ? 1.0: 0.0;
+
+    //
+    float CURVE_DISC_REP_WEIGHT = 0.1;
+    float curve_disc_rep = segment.isCurveDiscontinuity() ? 1.0: 0.0;
+
+    //
+    float CONCAVE_REP_WEIGHT = 1000.0; // Never use concave items
+    float concave_rep = segment.isConcave() ? -1.0: 0.0;
+
+    float vec[] = {LENGTH_WEIGHT * segment_len_rep,
+                   ORIENTATION_WEIGHT * abs(orientation.x),
+                   ORIENTATION_WEIGHT * abs(orientation.y),
+                   POSE_REP_WEIGHT * pose_rep,
+                   DEPTH_DISC_REP_WEIGHT * depth_dis_rep,
+                   CURVE_DISC_REP_WEIGHT * curve_disc_rep,
+                   CONCAVE_REP_WEIGHT * concave_rep};
+    cv::Mat m_vec(1, vec_count, CV_32FC1, vec);
+
+    cv::Mat res;
+    m_vec.copyTo(res);
+    return res;
 }

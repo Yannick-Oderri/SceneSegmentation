@@ -119,7 +119,7 @@ public:
     void start(){
         int frame_count = 0;
         while(this->close_pipe_ == false){
-            BOOST_LOG_TRIVIAL(info) << "Receiving Simple frame: " << frame_count;
+//            BOOST_LOG_TRIVIAL(info) << "Receiving Simple frame: " << frame_count;
 
             FrameElement* frame_element = this->generateCurrentFrame(frame_count);
             out_queue_->push(frame_element);

@@ -24,33 +24,33 @@ LineSegment::LineSegment(Contour contour, std::pair<int, int>contour_region):
 
 }
 
-cv::Point2f LineSegment::getEndPos() {
+cv::Point2f LineSegment::getEndPos() const{
     return this->end_pos_;
 }
 
-cv::Point2f LineSegment::getStartPos() {
+cv::Point2f LineSegment::getStartPos() const{
     return this->start_pos_;
 }
 
 
-float LineSegment::getSlope() {
+float LineSegment::getSlope() const{
     return (end_pos_.y - start_pos_.y)/ (end_pos_.x - start_pos_.x);
 }
 
 
-float LineSegment::getLength() {
+float LineSegment::getLength() const{
     return sqrt(pow(end_pos_.y - start_pos_.y, 2) + pow(end_pos_.x - start_pos_.x, 2));
 }
 
-tribool LineSegment::getConvexity() {
+tribool LineSegment::getConvexity() const{
     return this->feature_convex_concave_;
 }
 
-tribool LineSegment::getDiscontinuity() {
+tribool LineSegment::getDiscontinuity() const{
     return this->feature_depth_curve_;
 }
 
-tribool LineSegment::getPose() {
+tribool LineSegment::getPose() const{
     return this->feature_right_left_;
 }
 
@@ -58,7 +58,7 @@ void LineSegment::setDiscontinuity(bool val) {
     this->feature_depth_curve_ = val;
 }
 
-float LineSegment::getAngle() {
+float LineSegment::getAngle() const{
     cv::Point vec = this->end_pos_ - this->start_pos_;
     float res = atan2(vec.y, vec.x);
     return res;
@@ -107,11 +107,11 @@ bool LineSegment::isPoseRight() {
     return this->feature_right_left_ == true;
 }
 
-bool LineSegment::isConcave() {
+bool LineSegment::isConcave() const{
     return this->feature_convex_concave_ == false;
 }
 
-bool LineSegment::isConvex() {
+bool LineSegment::isConvex() const{
     return this->feature_convex_concave_ == true;
 }
 
@@ -121,4 +121,11 @@ void LineSegment::setLinePlacement(bool b) {
 
 bool LineSegment::isBackground() {
     return this->feature_background_foreground_ == true;
+}
+
+cv::Point2f LineSegment::getOrientation() {
+    cv::Point2f vec = this->end_pos_ - this->start_pos_;
+    float len = this->getLength();
+
+    return vec / len;
 }
