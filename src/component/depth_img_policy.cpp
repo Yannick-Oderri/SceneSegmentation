@@ -36,7 +36,7 @@ bool DepthImagePolicy::executePolicy() {
     cv::Mat depth_disc = this->processDepthDiscontinuity(this->parent_window_, frame_element);
 
     cv::Mat skel = curve_disc | depth_disc;
-    cv::morphologyEx(skel, skel, cv::MORPH_CLOSE, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3)));
+    cv::morphologyEx(skel, skel, cv::MORPH_CLOSE, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(2, 2)));
 
 
     std::vector<std::vector<cv::Point> > t_contours;

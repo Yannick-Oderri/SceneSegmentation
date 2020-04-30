@@ -34,7 +34,33 @@ TEST (DISABLED_cudaContourOperationUnitTest, ContourOperation) {
 }
 
 
-TEST (longcudaContourOperationUnitTest, ContourOperation) {
+TEST (CudaEdgeOprTest, ContourOperation) {
+    /// Initialize Application context
+    AppContextBuilder app_ctx_builder;
+    app_ctx_builder.setViewPortDimensions(800, 640);
+    app_ctx_builder.setWindowTitle("Edge App");
+    app_ctx_builder.setResDir("../../data");
+
+    AppContext* const app_ctx = app_ctx_builder.Build();
+
+    DepthImagePolicy dimg_policy(app_ctx);
+
+    ResMgr* resMgr = app_ctx->getResMgr();
+    SimpleImageProducer frame_producer(resMgr, 0);
+    frame_producer.initialize();
+    FrameElement* frame_element = frame_producer.generateCurrentFrame();
+
+    std::vector<std::vector<LineSegment>> elements(1);
+    LineSegment t_segment(cv::Point2f(289, 230), cv::Point2f(302, 336));
+    elements[0].push_back(t_segment);
+    cv::Mat dimg = frame_element->getDepthFrameData()->getcvMat();
+    ContourResult* results = cu_determineROIMean(elements, dimg, 12);
+    EXPECT_EQ(int(results[0].contour_len), 107);
+}
+
+
+
+TEST (DISABLED_longcudaContourOperationUnitTest, ContourOperation) {
     /// Initialize Application context
     AppContextBuilder app_ctx_builder;
     app_ctx_builder.setViewPortDimensions(800, 640);
@@ -60,6 +86,4 @@ TEST (longcudaContourOperationUnitTest, ContourOperation) {
     LineSegmentContourPolicy contour_policy;
     contour_policy.setContourData(contour_attribtues);
     contour_policy.executePolicy();
-
-
 }

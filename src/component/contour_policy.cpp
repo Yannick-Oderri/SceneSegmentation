@@ -39,7 +39,7 @@ bool LineSegmentContourPolicy::executePolicy() {
     FrameElement frame_element = this->current_contour_data_->frame_element;
 
     // Segment Contours
-    vector<vector<LineSegment>> contour_segments =  lineSegmentExtraction(contours, 10.0f);
+    vector<vector<LineSegment>> contour_segments =  lineSegmentExtraction(contours, 12.0f);
     cv::Mat n_depth_image = frame_element.getDepthFrameData()->getcvMat();
     ContourResult* contour_operation_res = cu_determineROIMean(contour_segments, n_depth_image, 8);
 
@@ -48,14 +48,14 @@ bool LineSegmentContourPolicy::executePolicy() {
     calculateContourFeatures(contour_segments, contours, frame_element, contour_operation_res);
     // render line feature
     for(int i = 1; i <= 4; i++){
-        // drawSegmentList(contour_segments, i);
+        drawSegmentList(contour_segments, i);
     }
 
     // Pair contours
     vector<LinePair> line_pairs = pairContourSegments(contour_segments, contours);
     cv::Mat drawing = cv::Mat::zeros( frame_element.getContourFrame().size(), CV_8UC3 );
     frame_element.getColorFrameElement()->copyTo(drawing);
-//    drawLinePairs(line_pairs, drawing);
+    drawLinePairs(line_pairs, drawing);
 
     return true;
 }
@@ -162,7 +162,7 @@ void calculateContourFeatures(vector<vector<LineSegment>>& contour_segments, Con
 }
 
 void drawLinePairs(vector<LinePair>& line_pairs, cv::Mat& color_image){
-    cv::RNG rng(time(NULL));
+    cv::RNG rng(342425532); //time(NULL));
 
     for(auto line_pair: line_pairs){
         cv::Scalar color = cv::Scalar(rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
@@ -223,9 +223,11 @@ vector<LinePair> pairContourSegments(vector<vector<LineSegment>>& contour_segmen
             LineSegment& sgmnt_2 = segments[pair_id.second];
 
             // If lines has been used already skip pairing
-            if(std::count(used_indecies.begin(), used_indecies.end(), pair_id.first) != 0 ||
-               std::count(used_indecies.begin(), used_indecies.end(), pair_id.second) != 0 ||
-               score <= 0){
+            if(abs(pair_id.second - pair_id.first) == 1 ||
+                    std::count(used_indecies.begin(), used_indecies.end(), pair_id.first) != 0 ||
+                   std::count(used_indecies.begin(), used_indecies.end(), pair_id.second) != 0 ||
+                   sgmnt_1.isConcave() || sgmnt_2.isConcave() ||
+                   score <= 0){
                 continue;
             }
 
@@ -249,7 +251,7 @@ vector<LinePair> pairContourSegments(vector<vector<LineSegment>>& contour_segmen
  * @return
  */
 pair<int, float> maxSegmentDeviation(int first, int last, Contour contour){
-    boost::timer::auto_cpu_timer profiler_segment_deviation("PROFILER: segment_deviation \t\t Time: %w secs\n");
+//    boost::timer::auto_cpu_timer profiler_segment_deviation("PROFILER: segment_deviation \t\t Time: %w secs\n");
 
     vector<double> deviation_vals(last - first);
 
@@ -339,7 +341,7 @@ void drawSegmentList(vector<vector<LineSegment>>& contour_segments, int mode){
 }
 
 vector<vector<LineSegment>> lineSegmentExtraction(Contours contour_set, double tolerance) {
-    boost::timer::auto_cpu_timer profiler_segment_extraction("PROFILER: segment_extraction \t\t\t Time: %w secs\n");
+//    boost::timer::auto_cpu_timer profiler_segment_extraction("PROFILER: segment_extraction \t\t\t Time: %w secs\n");
     vector<vector<LineSegment>> contour_segments = vector<vector<LineSegment>>();
 
     for(Contour contour : contour_set) {
@@ -550,16 +552,16 @@ cv::Mat getSegmentVectorRepresentation(LineSegment& segment, bool invert_pose){
     int vec_count = 7;
 
     // Lengith Representation
-    float LENGTH_WEIGHT = 0.008;
+    float LENGTH_WEIGHT = 0.01;
     float segment_len_rep = segment.getLength();
 
 
     // Orientation Representation
-    float ORIENTATION_WEIGHT = 6.0f;
+    float ORIENTATION_WEIGHT = 2.0f;
     cv::Point orientation = segment.getOrientation();
 
     // Line segment pose rep
-    float POSE_REP_WEIGHT = 1.0f;
+    float POSE_REP_WEIGHT = 1.33f;
     float pose_rep = segment.isPoseRight() ? 1.0 : 0;
     pose_rep = segment.isPoseLeft() ? -1.0 : 0;
     pose_rep = invert_pose ? pose_rep * -1.0: pose_rep;
