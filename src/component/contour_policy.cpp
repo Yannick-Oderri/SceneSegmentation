@@ -21,7 +21,7 @@ using namespace std;
 
 
 // Forward Declarations
-vector<vector<LineSegment>>  lineSegmentExtraction(Contours contour_set, double tolerance);
+vector<vector<LineSegment>>  lineSegmentExtraction(Contours contour_set, double tolerance, double min_len);
 void calculateContourFeatures(vector<vector<LineSegment>>& contour_segments, Contours contour_set, FrameElement&, ContourResult* const);
 vector<LinePair> pairContourSegments(vector<vector<LineSegment>>& contour_segments, Contours& contour_set);
 void drawLinePairs(vector<LinePair>& line_pairs, cv::Mat& color_image);
@@ -29,7 +29,7 @@ void drawSegmentList(vector<vector<LineSegment>>& contour_segments, int mode = 1
 std::vector<cv::Point2f> generateWindowCooridnates(std::pair<cv::Point2f, cv::Point2f> line, int window_size, int buffer_size);
 std::pair<int, int> determineROIMeans(cv::Mat depth_img, vector<cv::Point2f> roi, cv::Mat& contour_mask, double& contour_overlap_p, double& contour_overlap_n);
 double determineROIDepthDiscMeans(cv::Mat depth_img, vector<cv::Point2f> roi);
-cv::Mat getSegmentVectorRepresentation(LineSegment& segment, bool invert_pose=false);
+double getSegmentVectorRepresentation(LineSegment& segment1, LineSegment& segment2);
 
 
 bool LineSegmentContourPolicy::executePolicy() {
@@ -39,7 +39,7 @@ bool LineSegmentContourPolicy::executePolicy() {
     FrameElement frame_element = this->current_contour_data_->frame_element;
 
     // Segment Contours
-    vector<vector<LineSegment>> contour_segments =  lineSegmentExtraction(contours, 12.0f);
+    vector<vector<LineSegment>> contour_segments =  lineSegmentExtraction(contours, 12.0f, 10.0);
     cv::Mat n_depth_image = frame_element.getDepthFrameData()->getcvMat();
     ContourResult* contour_operation_res = cu_determineROIMean(contour_segments, n_depth_image, 8);
 
@@ -87,10 +87,11 @@ void calculateContourFeatures(vector<vector<LineSegment>>& contour_segments, Con
 //        cv::Mat contour_mask(frame_element.getDepthDiscontinuity().rows, frame_element.getDepthDiscontinuity().cols, CV_32F);
 //        cv::drawContours(contour_mask, contour_set, i, cv::Scalar(1),  -1);
 //        cv::imshow("test", contour_mask);
-//        cv::waitKey(1);
+//        cv::waitKey(0);
 
         // perform calculation on contour segments
         int segment_index = 0;
+        bool prior_countour_pose = false;
         for(auto& line_segment : segments){
             // Determine Region of interest averages
             // BOOST_LOG_TRIVIAL(info) << "Line Segment: " << ++segment_index;
@@ -139,6 +140,14 @@ void calculateContourFeatures(vector<vector<LineSegment>>& contour_segments, Con
 //                BOOST_LOG_TRIVIAL(info) << "Region 1: " << roi_means.first;
 //                BOOST_LOG_TRIVIAL(info) << "Region 2: " << roi_means.second;
 //                BOOST_LOG_TRIVIAL(info) << "Angle 2: " << angle;
+                if (segment_index == 0){
+                    prior_countour_pose = roi_means.first <= roi_means.second;
+                }else if(prior_countour_pose != (roi_means.first <= roi_means.second)){
+                    line_segment.setConvexity(false); // Make line invalid if not contoinous
+                }else{
+                    prior_countour_pose = roi_means.first <= roi_means.second;
+                }
+
                 if ((roi_means.first <= roi_means.second) && (line_segment.getAngle() >= 0))
                     line_segment.setPose(false); // left
                 else if((roi_means.first <= roi_means.second) && (line_segment.getAngle() < 0))
@@ -147,15 +156,17 @@ void calculateContourFeatures(vector<vector<LineSegment>>& contour_segments, Con
 //                    BOOST_LOG_TRIVIAL(info) << "Invalid Line";
                 }
 
+
             }else{ /// for curve discontinuity base
                 line_segment.setDiscontinuity(false);
                 /// set convexity if average line depth is less than or equal roi average
                 if ((line_depth_mean <= roi_means.first) && (line_depth_mean <= roi_means.second))
-                    line_segment.setConvexity(true);
-                else
                     line_segment.setConvexity(false);
+                else
+                    line_segment.setConvexity(true);
 
             }
+            segment_index++;
             contour_idx++;
         }
     }
@@ -202,10 +213,7 @@ vector<LinePair> pairContourSegments(vector<vector<LineSegment>>& contour_segmen
             LineSegment &sgmnt_1 = segments[c[0] - 1];
             LineSegment &sgmnt_2 = segments[c[1] - 1];
 
-            cv::Mat vec_1 = getSegmentVectorRepresentation(sgmnt_1, true);
-            cv::Mat vec_2 = getSegmentVectorRepresentation(sgmnt_2, false);
-
-            double correlation_score = vec_1.dot(vec_2);
+            double correlation_score = getSegmentVectorRepresentation(sgmnt_1, sgmnt_2);
 
             pair<pair<int, int>, double> t_pair(pair<int, int>(c[0] - 1, c[1] - 1), correlation_score);
             correlation_set.push_back(t_pair);
@@ -223,11 +231,14 @@ vector<LinePair> pairContourSegments(vector<vector<LineSegment>>& contour_segmen
             LineSegment& sgmnt_2 = segments[pair_id.second];
 
             // If lines has been used already skip pairing
-            if(abs(pair_id.second - pair_id.first) == 1 ||
-                    std::count(used_indecies.begin(), used_indecies.end(), pair_id.first) != 0 ||
-                   std::count(used_indecies.begin(), used_indecies.end(), pair_id.second) != 0 ||
+            cv::Point2f tpos =  sgmnt_1.getEndPos() - sgmnt_2.getStartPos();
+            float val1 = pow(tpos.x, 2) + pow(tpos.y, 2);
+            tpos =  sgmnt_2.getEndPos() - sgmnt_1.getStartPos();
+            float val2 = pow(tpos.x, 2) + pow(tpos.y, 2);
+            if( (val1 - 64) < 0 || (val2 - 64) < 0 ||
                    sgmnt_1.isConcave() || sgmnt_2.isConcave() ||
-                   score <= 0){
+                   std::count(used_indecies.begin(), used_indecies.end(), pair_id.first) != 0 ||
+                   std::count(used_indecies.begin(), used_indecies.end(), pair_id.second) != 0 || score == 0){
                 continue;
             }
 
@@ -340,7 +351,7 @@ void drawSegmentList(vector<vector<LineSegment>>& contour_segments, int mode){
 
 }
 
-vector<vector<LineSegment>> lineSegmentExtraction(Contours contour_set, double tolerance) {
+vector<vector<LineSegment>> lineSegmentExtraction(Contours contour_set, double tolerance, double min_len) {
 //    boost::timer::auto_cpu_timer profiler_segment_extraction("PROFILER: segment_extraction \t\t\t Time: %w secs\n");
     vector<vector<LineSegment>> contour_segments = vector<vector<LineSegment>>();
 
@@ -358,7 +369,7 @@ vector<vector<LineSegment>> lineSegmentExtraction(Contours contour_set, double t
                 deviation = maxSegmentDeviation(first, last, contour);
             }
             LineSegment line_segment(contour, std::pair<int, int>(first, last));
-            if(line_segment.getLength() > 1)
+            if(line_segment.getLength() > min_len)
                 segments.push_back(line_segment);
 
             first = last;
@@ -548,46 +559,37 @@ double determineROIDepthDiscMeans(cv::Mat depth_img, vector<cv::Point2f> roi){
 
 }
 
-cv::Mat getSegmentVectorRepresentation(LineSegment& segment, bool invert_pose){
+double getSegmentVectorRepresentation(LineSegment& sgmnt_1, LineSegment& sgmnt_2){
     int vec_count = 7;
-
     // Lengith Representation
-    float LENGTH_WEIGHT = 0.01;
-    float segment_len_rep = segment.getLength();
-
-
+    float LENGTH_WEIGHT = 0.008;
     // Orientation Representation
     float ORIENTATION_WEIGHT = 2.0f;
-    cv::Point orientation = segment.getOrientation();
-
-    // Line segment pose rep
+    // Line sgmnt_1 pose rep
     float POSE_REP_WEIGHT = 1.33f;
-    float pose_rep = segment.isPoseRight() ? 1.0 : 0;
-    pose_rep = segment.isPoseLeft() ? -1.0 : 0;
-    pose_rep = invert_pose ? pose_rep * -1.0: pose_rep;
-
     //
     float DEPTH_DISC_REP_WEIGHT = 0.1;
-    float depth_dis_rep = segment.isDepthDiscontinuity() ? 1.0: 0.0;
-
     //
     float CURVE_DISC_REP_WEIGHT = 0.1;
-    float curve_disc_rep = segment.isCurveDiscontinuity() ? 1.0: 0.0;
-
     //
-    float CONCAVE_REP_WEIGHT = 1000.0; // Never use concave items
-    float concave_rep = segment.isConcave() ? -1.0: 0.0;
+    float CONCAVE_REP_WEIGHT = 1.0; // Never use concave items
 
-    float vec[] = {LENGTH_WEIGHT * segment_len_rep,
-                   ORIENTATION_WEIGHT * abs(orientation.x),
-                   ORIENTATION_WEIGHT * abs(orientation.y),
-                   POSE_REP_WEIGHT * pose_rep,
-                   DEPTH_DISC_REP_WEIGHT * depth_dis_rep,
-                   CURVE_DISC_REP_WEIGHT * curve_disc_rep,
-                   CONCAVE_REP_WEIGHT * concave_rep};
-    cv::Mat m_vec(1, vec_count, CV_32FC1, vec);
+    float len = sgmnt_1.getLength() * sgmnt_2.getLength() * LENGTH_WEIGHT;
+    float orien = abs(sgmnt_1.getOrientation().ddot(sgmnt_2.getOrientation()));
+    float orientation = orien * ORIENTATION_WEIGHT;
+    float pose = sgmnt_1.isPoseRight() != sgmnt_2.isPoseRight() ? 1.0 : 0;
+    if(pose == 0) pose = sgmnt_1.isPoseLeft() != sgmnt_2.isPoseLeft() ? 1.0: 0;
+    pose *= POSE_REP_WEIGHT;
+    float depth_dis_rep = sgmnt_1.isDepthDiscontinuity() == sgmnt_2.isDepthDiscontinuity() ? 1.0: 0.0;
+    depth_dis_rep *= DEPTH_DISC_REP_WEIGHT;
+    float curve_disc_rep = sgmnt_1.isCurveDiscontinuity() == sgmnt_2.isCurveDiscontinuity() ? 1.0: 0.0;
+    curve_disc_rep *= CURVE_DISC_REP_WEIGHT;
+    bool concave_rep = sgmnt_1.isConcave() || sgmnt_2.isConcave();
 
-    cv::Mat res;
-    m_vec.copyTo(res);
+    if (concave_rep || orien < 0.1){
+        return 0;
+    }
+
+    double res = len + orientation + pose + depth_dis_rep + curve_disc_rep;
     return res;
 }

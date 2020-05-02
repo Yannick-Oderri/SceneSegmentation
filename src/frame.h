@@ -252,6 +252,10 @@ public:
 
      }
 
+     ~ContourAttributes(){
+
+     }
+
      /// Constructor
 //     ContourAttributes(ColorFrameElement color_data, DepthFrameElement depth_data, vector<vector<cv::Point>> contour_data):
 //     frame_element(color_data, depth_data),

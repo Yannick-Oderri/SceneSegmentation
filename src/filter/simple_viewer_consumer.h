@@ -25,7 +25,7 @@ public:
             BOOST_LOG_TRIVIAL(info) << "Receiving Final Frame " << frame_count;
 
             in_queue_->waitData();
-            libfreenect2::Frame* current_frame = in_queue_->front();
+            * current_frame = in_queue_->front();
 
             cv::Mat cv_frame(current_frame->height, current_frame->width, CV_32F, current_frame->data);
             cv::imshow("Current Depth Frame", cv_frame);

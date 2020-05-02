@@ -36,7 +36,7 @@ bool DepthImagePolicy::executePolicy() {
     cv::Mat depth_disc = this->processDepthDiscontinuity(this->parent_window_, frame_element);
 
     cv::Mat skel = curve_disc | depth_disc;
-    cv::morphologyEx(skel, skel, cv::MORPH_CLOSE, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(2, 2)));
+    cv::morphologyEx(skel, skel, cv::MORPH_CLOSE, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3)));
 
 
     std::vector<std::vector<cv::Point> > t_contours;
@@ -165,7 +165,7 @@ void DepthImagePolicy::intializeGLParams(AppContext* const ctxt) {
     // Set all shaders to
     this->shdr_normal_.enableFramebuffer(true);
     //this->shdr_bilateral_.enableFramebuffer(true);
-    //this->shdr_median_blur_.enableFramebuffer(true);
+    this->shdr_median_blur_.enableFramebuffer(true);
     //this->shdr_sobel_.enableFramebuffer(true);
     this->shdr_blk_whte_.enableFramebuffer(true);
 
@@ -313,17 +313,25 @@ cv::Mat DepthImagePolicy::glProcessCurveDiscontinuity(GLFWwindow* const glContex
     glBindVertexArray(this->fb_quad_vao_);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
+    // Perform Media Blur
+    this->shdr_median_blur_.use();
+    glBindFramebuffer(GL_FRAMEBUFFER, this->shdr_median_blur_.getFramebufferTextureID());
+    glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glBindVertexArray(this->fb_quad_vao_);
+    glActiveTexture(GL_TEXTURE0);
+    glad_glBindTexture(GL_TEXTURE_RECTANGLE, this->shdr_normal_.getFramebufferTextureID());
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+
     // second pass -- black and white
+    this->shdr_blk_whte_.use();
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
-
-    this->shdr_blk_whte_.use();
     glBindVertexArray(this->fb_quad_vao_);
     glActiveTexture(GL_TEXTURE0); // TEXTURE0 image location
-    glBindTexture(GL_TEXTURE_RECTANGLE, this->shdr_normal_.getFramebufferTextureID());
+    glBindTexture(GL_TEXTURE_RECTANGLE, this->shdr_median_blur_.getFramebufferTextureID());
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
-
 
     // render your GUI
     updateBWParameters(&this->shdr_blk_whte_);

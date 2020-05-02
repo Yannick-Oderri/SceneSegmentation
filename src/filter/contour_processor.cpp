@@ -19,6 +19,8 @@ void ContourProcessorPipeFilter::start() {
 
         this->exec_policy->executePolicy();
 
+        delete contour_data;
+
         getInQueue()->pop();
         
     }
