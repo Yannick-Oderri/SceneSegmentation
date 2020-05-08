@@ -48,7 +48,7 @@ bool LineSegmentContourPolicy::executePolicy() {
     calculateContourFeatures(contour_segments, contours, frame_element, contour_operation_res);
     // render line feature
     for(int i = 1; i <= 4; i++){
-        drawSegmentList(contour_segments, i);
+        // drawSegmentList(contour_segments, i);
     }
 
     // Pair contours
@@ -71,7 +71,7 @@ void mergeLines(vector<LineSegment> segments, FrameElement& frame_element){
  * @param ddiscontinuity_map
  */
 void calculateContourFeatures(vector<vector<LineSegment>>& contour_segments, Contours contour_set, FrameElement& frame_element, ContourResult* const contour_opr_results){
-    boost::timer::auto_cpu_timer profiler_contour_features("PROFILER: contour_features \t\t\t Time: %w secs\n");
+    // boost::timer::auto_cpu_timer profiler_contour_features("PROFILER: contour_features \t\t\t Time: %w secs\n");
     cv::Mat dd_img = frame_element.getDepthDiscontinuity();
     cv::Mat cd_img = frame_element.getCurveDiscontinuity();
     cv::Mat ndepth_img = frame_element.getDepthFrameData()->getNDepthImage();
@@ -143,7 +143,7 @@ void calculateContourFeatures(vector<vector<LineSegment>>& contour_segments, Con
                 if (segment_index == 0){
                     prior_countour_pose = roi_means.first <= roi_means.second;
                 }else if(prior_countour_pose != (roi_means.first <= roi_means.second)){
-                    line_segment.setConvexity(false); // Make line invalid if not contoinous
+                    // line_segment.setConvexity(false); // Make line invalid if pose continous
                 }else{
                     prior_countour_pose = roi_means.first <= roi_means.second;
                 }
@@ -188,7 +188,7 @@ void drawLinePairs(vector<LinePair>& line_pairs, cv::Mat& color_image){
 }
 
 vector<LinePair> pairContourSegments(vector<vector<LineSegment>>& contour_segments, Contours& contour_set){
-    boost::timer::auto_cpu_timer profiler_segment_pairing("PROFILER: segment_pairing \t\t\t Time: %w secs\n");
+    // boost::timer::auto_cpu_timer profiler_segment_pairing("PROFILER: segment_pairing \t\t\t Time: %w secs\n");
 
     vector<LinePair> line_pairs;
     for(int i = 0; i < contour_segments.size(); i++){
@@ -303,7 +303,7 @@ pair<int, float> maxSegmentDeviation(int first, int last, Contour contour){
 }
 
 void drawSegmentList(vector<vector<LineSegment>>& contour_segments, int mode){
-    boost::timer::auto_cpu_timer profiler_draw_segments("PROFILER: draw_segments \t\t\t Time: %w secs\n");
+    // boost::timer::auto_cpu_timer profiler_draw_segments("PROFILER: draw_segments \t\t\t Time: %w secs\n");
 
     cv::Mat image = cv::Mat::zeros(480, 640, CV_8UC3);
     cv::RNG rng(3212764);
@@ -449,7 +449,7 @@ std::vector<cv::Point> t_generateWindowCooridnates(std::pair<cv::Point, cv::Poin
 }
 
 std::vector<cv::Point2f> generateWindowCooridnates(std::pair<cv::Point2f, cv::Point2f> line, int window_size, int buffer_size){
-    boost::timer::auto_cpu_timer profiler_window_coord("PROFILER: window_coordinates \t\t Time: %w secs\n");
+    // boost::timer::auto_cpu_timer profiler_window_coord("PROFILER: window_coordinates \t\t Time: %w secs\n");
 
     // get perpendicular vector
     cv::Point2f vec(line.second - line.first);
@@ -483,7 +483,7 @@ std::vector<cv::Point2f> generateWindowCooridnates(std::pair<cv::Point2f, cv::Po
 }
 
 std::pair<int, int> determineROIMeans(cv::Mat depth_img, vector<cv::Point2f> roi, cv::Mat& contour_mask, double& contour_overlap_p, double& contour_overlap_n){
-    boost::timer::auto_cpu_timer profiler_roi_mean("PROFILER: roi_mean \t\t\t\t\t Time: %w secs\n");
+    // boost::timer::auto_cpu_timer profiler_roi_mean("PROFILER: roi_mean \t\t\t\t\t Time: %w secs\n");
     std::pair<int, int> res;
 
     vector<vector<cv::Point>> t_contour(2); // define temporary contour for drawing rois
@@ -535,7 +535,7 @@ std::pair<int, int> determineROIMeans(cv::Mat depth_img, vector<cv::Point2f> roi
 
 
 double determineROIDepthDiscMeans(cv::Mat depth_img, vector<cv::Point2f> roi){
-     boost::timer::auto_cpu_timer profiler_roi_depth_mean("PROFILER: roi_depth_mean \t\t\t Time: %w secs\n");
+    // boost::timer::auto_cpu_timer profiler_roi_depth_mean("PROFILER: roi_depth_mean \t\t\t Time: %w secs\n");
 
     std::pair<int, int> res;
     cv::Mat mask = cv::Mat::zeros(depth_img.rows, depth_img.cols, CV_8U);
@@ -562,9 +562,9 @@ double determineROIDepthDiscMeans(cv::Mat depth_img, vector<cv::Point2f> roi){
 double getSegmentVectorRepresentation(LineSegment& sgmnt_1, LineSegment& sgmnt_2){
     int vec_count = 7;
     // Lengith Representation
-    float LENGTH_WEIGHT = 0.008;
+    float LENGTH_WEIGHT = 0.0008;
     // Orientation Representation
-    float ORIENTATION_WEIGHT = 2.0f;
+    float ORIENTATION_WEIGHT = 2.6f;
     // Line sgmnt_1 pose rep
     float POSE_REP_WEIGHT = 1.33f;
     //
@@ -586,7 +586,7 @@ double getSegmentVectorRepresentation(LineSegment& sgmnt_1, LineSegment& sgmnt_2
     curve_disc_rep *= CURVE_DISC_REP_WEIGHT;
     bool concave_rep = sgmnt_1.isConcave() || sgmnt_2.isConcave();
 
-    if (concave_rep || orien < 0.1){
+    if (concave_rep || orien < 0.667){
         return 0;
     }
 

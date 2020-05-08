@@ -5,6 +5,7 @@
 #include <glad/glad.h>
 #include "depth_img_policy.h"
 #include <boost/log/trivial.hpp>
+#include <boost/timer/timer.hpp>
 
 #include <imgui.h>
 #include <imgui_impl_opengl3.h>
@@ -24,7 +25,13 @@ app_context_(app_context){
 }
 
 
+void updateEdgeParameters(EdgeParameters* const params);
+
 bool DepthImagePolicy::executePolicy() {
+    boost::timer::auto_cpu_timer profiler_image_policy("PROFILER: Edge Detect \t\t\t Time: %w secs\n");
+
+    EdgeParameters edge_params;
+
     FrameElement* frame_element = this->frame_element_;
     if(frame_element == nullptr){
         BOOST_LOG_TRIVIAL(error) << "Null Frame element passed to Depth Image Policy";
@@ -32,11 +39,12 @@ bool DepthImagePolicy::executePolicy() {
     }
 
 
-    cv::Mat curve_disc = this->glProcessCurveDiscontinuity(this->parent_window_, frame_element);
+    cv::Mat curve_disc = this->glProcessCurveDiscontinuity(this->parent_window_, frame_element, &edge_params);
     cv::Mat depth_disc = this->processDepthDiscontinuity(this->parent_window_, frame_element);
 
     cv::Mat skel = curve_disc | depth_disc;
-    cv::morphologyEx(skel, skel, cv::MORPH_CLOSE, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3)));
+    cv::morphologyEx(skel, skel, cv::MORPH_CLOSE,
+            cv::getStructuringElement(cv::MORPH_RECT, cv::Size(edge_params.MorphologySize, edge_params.MorphologySize)));
 
 
     std::vector<std::vector<cv::Point> > t_contours;
@@ -45,7 +53,7 @@ bool DepthImagePolicy::executePolicy() {
 
     /// Find contours
     threshold(skel, skel, 20, 255, cv::THRESH_BINARY );
-    cv::imshow("skel", skel);
+    //cv::imshow("skel", skel);
     cv::findContours( skel, t_contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_NONE, cv::Point(0, 0) );
     // ImageFrame *new_frame = new ImageFrame(frame->width, frame->height, 4*sizeof(float), new_buffer);
     // getOutQueue()->push(new_frame);
@@ -253,9 +261,11 @@ void DepthImagePolicy::intializeGLParams(AppContext* const ctxt) {
     this->shdr_median_blur_.setInt("iChannel0", 0);
 
     this->shdr_sobel_.use();
-    y_sobel = glm::mat3x3(glm::vec3(-1,-1,-1), glm::vec3(-1, 8,-1), glm::vec3(-1,-1,-1));
+    y_sobel = glm::mat3x3(glm::vec3(-1,-1,-1),
+            glm::vec3(-1, 8,-1), glm::vec3(-1,-1,-1));
     this->shdr_sobel_.setMat3("convolutionMatrix_y", y_sobel);
-    x_sobel = glm::mat3x3(glm::vec3(-1,-1,-1), glm::vec3(-1, 8,-1), glm::vec3(-1,-1,-1));
+    x_sobel = glm::mat3x3(glm::vec3(-1,-1,-1),
+            glm::vec3(-1, 8,-1), glm::vec3(-1,-1,-1));
     this->shdr_sobel_.setMat3("convolutionMatrix_x", x_sobel);
     this->shdr_sobel_.setInt("dmap", 0);
 
@@ -268,14 +278,16 @@ void DepthImagePolicy::intializeGLParams(AppContext* const ctxt) {
     glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     // generate an empty gl texture location
-    glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_DEPTH_COMPONENT, framebuffer_width_, framebuffer_height_, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+    glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_DEPTH_COMPONENT, framebuffer_width_,
+            framebuffer_height_, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
 
     double previousTime = glfwGetTime();
     int frameCount = 0;
 }
 
 
-cv::Mat DepthImagePolicy::glProcessCurveDiscontinuity(GLFWwindow* const glContext, FrameElement* const frame_element) {
+cv::Mat DepthImagePolicy::glProcessCurveDiscontinuity(GLFWwindow* const glContext,
+        FrameElement* const frame_element, EdgeParameters* const edge_params) {
     glfwMakeContextCurrent(this->current_window_);
     glfwPollEvents();
 
@@ -296,7 +308,8 @@ cv::Mat DepthImagePolicy::glProcessCurveDiscontinuity(GLFWwindow* const glContex
 
     /// Calculate Curve Discontinuity
     glBindTexture(GL_TEXTURE_RECTANGLE, this->gl_depth_img_id_);
-    glTexSubImage2D(GL_TEXTURE_RECTANGLE, 0, 0, 0, framebuffer_width_, framebuffer_height_, GL_DEPTH_COMPONENT, GL_FLOAT, normalized_dd.ptr());
+    glTexSubImage2D(GL_TEXTURE_RECTANGLE, 0, 0, 0, framebuffer_width_, framebuffer_height_,
+            GL_DEPTH_COMPONENT, GL_FLOAT, normalized_dd.ptr());
     //glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGB, framebuffer_width_, framebuffer_height_, 0, GL_RGB, GL_UNSIGNED_BYTE, image.ptr());
     //glGenerateMipmap(GL_TEXTURE_RECTANGLE);
 
@@ -335,6 +348,7 @@ cv::Mat DepthImagePolicy::glProcessCurveDiscontinuity(GLFWwindow* const glContex
 
     // render your GUI
     updateBWParameters(&this->shdr_blk_whte_);
+    updateEdgeParameters(edge_params);
 
         // Render dear imgui into screen
     ImGui::Render();
@@ -346,7 +360,8 @@ cv::Mat DepthImagePolicy::glProcessCurveDiscontinuity(GLFWwindow* const glContex
     glfwSwapBuffers(this->current_window_);
     glFlush();
 
-    glReadPixels(0, 0, framebuffer_width_, framebuffer_height_, GL_RGBA, GL_UNSIGNED_BYTE, this->curve_disc_buffer_.ptr());
+    glReadPixels(0, 0, framebuffer_width_, framebuffer_height_, GL_RGBA,
+            GL_UNSIGNED_BYTE, this->curve_disc_buffer_.ptr());
 
     std::vector<cv::Mat> channels(4);
     cv::split(this->curve_disc_buffer_, channels);
@@ -359,7 +374,8 @@ cv::Mat DepthImagePolicy::glProcessCurveDiscontinuity(GLFWwindow* const glContex
 }
 
 
-cv::Mat DepthImagePolicy::processDepthDiscontinuity(GLFWwindow* const glContext, FrameElement* const frame_element){
+cv::Mat DepthImagePolicy::processDepthDiscontinuity(GLFWwindow* const glContext,
+        FrameElement* const frame_element){
     // Calculate Depth Discontinuity
     cv::Mat t_dimg = frame_element->getDepthFrameData()->getNDepthImage();
     cv::Mat depth_disc;
@@ -387,6 +403,15 @@ void updateBWParameters(Shader* const shdr_bw){
     ImGui::End();
 
     shdr_bw->setFloatv("coeff_values", bnw_coeffs, 6);
+}
+
+void updateEdgeParameters(EdgeParameters* const params){
+    static EdgeParameters tparams;
+    ImGui::Begin("Edge Params");
+    ImGui::SliderInt("Element Size", &tparams.MorphologySize, 1, 12);
+    ImGui::End();
+
+    params->MorphologySize = tparams.MorphologySize;
 }
 
 

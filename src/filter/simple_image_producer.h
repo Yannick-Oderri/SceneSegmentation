@@ -112,8 +112,8 @@ public:
         // Generate Color Image mat
         cv::Mat t_col;
         color_image_.copyTo(t_col);
-
-        return new FrameElement(frame_idx, t_col, *depth_content);
+        double currentTime = glfwGetTime();
+        return new FrameElement(frame_idx, t_col, *depth_content, currentTime);
     }
 
     void start(){

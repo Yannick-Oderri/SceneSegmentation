@@ -9,6 +9,10 @@
 #include "shader.hpp"
 #include "res/resource_mgr.h"
 
+struct EdgeParameters{
+    int MorphologySize = 5;
+};
+
 class DepthImagePolicy: PipelinePolicy {
 private:
     int framebuffer_width_;
@@ -32,7 +36,7 @@ private:
      * Process curve discontinuity
      * @param glContext
      */
-    cv::Mat glProcessCurveDiscontinuity(GLFWwindow* const glContext, FrameElement* const frame_element);
+    cv::Mat glProcessCurveDiscontinuity(GLFWwindow* const glContext, FrameElement* const frame_element, EdgeParameters* const eparams);
 
     /**
      * PRocess Dpeth Discontinuity

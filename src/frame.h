@@ -166,16 +166,18 @@ class FrameElement {
     cv::Mat cdiscontinuity_data_;
     cv::Mat contour_data_;
     const int frame_id_;
+    const double frame_time_;
 
 public:
     /// Constructor
-    FrameElement(int frame_id, ColorFrameElement color_frame_element, DepthFrameElement depth_frame_element):
+    FrameElement(int frame_id, ColorFrameElement color_frame_element, DepthFrameElement depth_frame_element, double frame_time):
             color_frame_element_(color_frame_element),
             depth_frame_element_(depth_frame_element),
             ddiscontinuity_data_(),
             cdiscontinuity_data_(),
             contour_data_(),
-            frame_id_(frame_id){}
+            frame_id_(frame_id),
+            frame_time_(frame_time){}
 
 
     /// Copy Contructor
@@ -185,7 +187,8 @@ public:
     ddiscontinuity_data_(cpy.ddiscontinuity_data_),
     cdiscontinuity_data_(cpy.cdiscontinuity_data_),
     contour_data_(cpy.contour_data_),
-    frame_id_(cpy.frame_id_){}
+    frame_id_(cpy.frame_id_),
+    frame_time_(cpy.frame_time_){}
 
     /**
      * Depth Frame Element
@@ -237,6 +240,10 @@ public:
      */
     inline cv::Mat getContourFrame(){
         return this->contour_data_;
+    }
+    
+    double getFrameTime() const {
+        return this->frame_time_;
     }
 };
 

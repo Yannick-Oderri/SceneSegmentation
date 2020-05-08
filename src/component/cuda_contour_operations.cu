@@ -206,8 +206,9 @@ ContourResult* launchContourRegionKernel(vector<vector<LineSegment>>& contour_se
 
     /// cleanup temp contours
     free(contours);
-    // free(dev_contour_results);
-    // free(dev_contours);
+    checkCudaErrors(cudaFree(dev_contour_results));
+    checkCudaErrors(cudaFree(dev_contours));
+    checkCudaErrors(cudaDestroyTextureObject(depth_tex));
 
     return contour_results;
 }
