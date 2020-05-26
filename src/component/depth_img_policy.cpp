@@ -6,6 +6,7 @@
 #include "depth_img_policy.h"
 #include <boost/log/trivial.hpp>
 #include <boost/timer/timer.hpp>
+#include <utils/wiener_filter.h>
 
 #include <imgui.h>
 #include <imgui_impl_opengl3.h>
@@ -104,6 +105,9 @@ bool DepthImagePolicy::executePolicy() {
     /// Show in a window
 //        cv::namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
     cv::imshow( "Contours", drawing );
+//    cv::imwrite("/home/ynki9/Desktop/ynk_img/test11/contour.png", drawing);
+    //    cv::imwrite("/home/ynki9/Desktop/ynk_img/test11/depth_disc.png", depth_disc);
+    //    cv::imwrite("/home/ynki9/Desktop/ynk_img/test11/curve_disc.png", curve_disc);
     cv::waitKey(1);
 
 
@@ -286,6 +290,10 @@ void DepthImagePolicy::intializeGLParams(AppContext* const ctxt) {
 }
 
 
+cv::Mat DepthImagePolicy::cuProcessCurveDiscontinuity(FrameElement* const frame_element, EdgeParameters* const edge_param){
+
+}
+
 cv::Mat DepthImagePolicy::glProcessCurveDiscontinuity(GLFWwindow* const glContext,
         FrameElement* const frame_element, EdgeParameters* const edge_params) {
     glfwMakeContextCurrent(this->current_window_);
@@ -316,7 +324,7 @@ cv::Mat DepthImagePolicy::glProcessCurveDiscontinuity(GLFWwindow* const glContex
 /// Rendering Routine
     // first pass -- Gradient Shader
     this->shdr_normal_.use();
-    glBindFramebuffer(GL_FRAMEBUFFER, this->shdr_normal_.getFramebufferTextureID());
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glClearColor(0.8f, 0.8f, 0.8f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     // render viewport rectangle
@@ -327,24 +335,24 @@ cv::Mat DepthImagePolicy::glProcessCurveDiscontinuity(GLFWwindow* const glContex
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
     // Perform Media Blur
-    this->shdr_median_blur_.use();
-    glBindFramebuffer(GL_FRAMEBUFFER, this->shdr_median_blur_.getFramebufferTextureID());
-    glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glBindVertexArray(this->fb_quad_vao_);
-    glActiveTexture(GL_TEXTURE0);
-    glad_glBindTexture(GL_TEXTURE_RECTANGLE, this->shdr_normal_.getFramebufferTextureID());
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+//    this->shdr_median_blur_.use();
+//    glBindFramebuffer(GL_FRAMEBUFFER, this->shdr_median_blur_.getFramebufferTextureID());
+//    glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+//    glClear(GL_COLOR_BUFFER_BIT);
+//    glBindVertexArray(this->fb_quad_vao_);
+//    glActiveTexture(GL_TEXTURE0);
+//    glad_glBindTexture(GL_TEXTURE_RECTANGLE, this->shdr_normal_.getFramebufferTextureID());
+//    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
     // second pass -- black and white
-    this->shdr_blk_whte_.use();
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glBindVertexArray(this->fb_quad_vao_);
-    glActiveTexture(GL_TEXTURE0); // TEXTURE0 image location
-    glBindTexture(GL_TEXTURE_RECTANGLE, this->shdr_median_blur_.getFramebufferTextureID());
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+//    this->shdr_blk_whte_.use();
+//    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+//    glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+//    glClear(GL_COLOR_BUFFER_BIT);
+//    glBindVertexArray(this->fb_quad_vao_);
+//    glActiveTexture(GL_TEXTURE0); // TEXTURE0 image location
+//    glBindTexture(GL_TEXTURE_RECTANGLE, this->shdr_median_blur_.getFramebufferTextureID());
+//    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
     // render your GUI
     updateBWParameters(&this->shdr_blk_whte_);
@@ -366,9 +374,16 @@ cv::Mat DepthImagePolicy::glProcessCurveDiscontinuity(GLFWwindow* const glContex
     std::vector<cv::Mat> channels(4);
     cv::split(this->curve_disc_buffer_, channels);
 
-    cv::Mat res;
-    cv::medianBlur(channels[0], channels[1], 5);
+    cv::Mat res();
+
+    WienerFilter(channels[0], channels[1], -1, cv::Size(9, 9));
+
+    cv::imshow("Wiener Result", channels[1]);
+
+    // cv::medianBlur(channels[0], channels[1], 5);
     cv::Canny(channels[1], res, 43.0, 90.0);
+    cv::imshow("Wiener 2", res);
+
 
     return res;
 }

@@ -25,7 +25,7 @@ vector<vector<LineSegment>>  lineSegmentExtraction(Contours contour_set, double 
 void calculateContourFeatures(vector<vector<LineSegment>>& contour_segments, Contours contour_set, FrameElement&, ContourResult* const);
 vector<LinePair> pairContourSegments(vector<vector<LineSegment>>& contour_segments, Contours& contour_set);
 void drawLinePairs(vector<LinePair>& line_pairs, cv::Mat& color_image);
-void drawSegmentList(vector<vector<LineSegment>>& contour_segments, int mode = 1);
+void drawSegmentList(vector<vector<LineSegment>>& contour_segments, cv::Mat base_img, int mode = 1);
 std::vector<cv::Point2f> generateWindowCooridnates(std::pair<cv::Point2f, cv::Point2f> line, int window_size, int buffer_size);
 std::pair<int, int> determineROIMeans(cv::Mat depth_img, vector<cv::Point2f> roi, cv::Mat& contour_mask, double& contour_overlap_p, double& contour_overlap_n);
 double determineROIDepthDiscMeans(cv::Mat depth_img, vector<cv::Point2f> roi);
@@ -39,7 +39,7 @@ bool LineSegmentContourPolicy::executePolicy() {
     FrameElement frame_element = this->current_contour_data_->frame_element;
 
     // Segment Contours
-    vector<vector<LineSegment>> contour_segments =  lineSegmentExtraction(contours, 12.0f, 10.0);
+    vector<vector<LineSegment>> contour_segments =  lineSegmentExtraction(contours, 10.0f, 10.0);
     cv::Mat n_depth_image = frame_element.getDepthFrameData()->getcvMat();
     ContourResult* contour_operation_res = cu_determineROIMean(contour_segments, n_depth_image, 8);
 
@@ -47,9 +47,16 @@ bool LineSegmentContourPolicy::executePolicy() {
     // Calculate contour features
     calculateContourFeatures(contour_segments, contours, frame_element, contour_operation_res);
     // render line feature
+    cv::Mat t_image = frame_element.getColorFrameElement()->clone();
+    cv::Mat l_image = frame_element.getColorFrameElement()->clone();
     for(int i = 1; i <= 4; i++){
-        // drawSegmentList(contour_segments, i);
+        if (i == 2 || i == 4){
+            t_image = l_image;
+        }
+        drawSegmentList(contour_segments, t_image, i);
     }
+
+//    cv::waitKey(0);
 
     // Pair contours
     vector<LinePair> line_pairs = pairContourSegments(contour_segments, contours);
@@ -179,11 +186,12 @@ void drawLinePairs(vector<LinePair>& line_pairs, cv::Mat& color_image){
         cv::Scalar color = cv::Scalar(rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
         LineSegment& sgmnt_1 = line_pair[0];
         LineSegment& sgmnt_2 = line_pair[1];
-        cv::line(color_image, sgmnt_1.getStartPos(), sgmnt_1.getEndPos(), color);
-        cv::line(color_image, sgmnt_2.getStartPos(), sgmnt_2.getEndPos(), color);
+        cv::line(color_image, sgmnt_1.getStartPos(), sgmnt_1.getEndPos(), color, 3);
+        cv::line(color_image, sgmnt_2.getStartPos(), sgmnt_2.getEndPos(), color, 3);
     }
 
     cv::imshow("Paired Lines", color_image);
+//    cv::imwrite("/home/ynki9/Desktop/ynk_img/test11/edge_detect.png", color_image);
     cv::waitKey(1);
 }
 
@@ -302,21 +310,22 @@ pair<int, float> maxSegmentDeviation(int first, int last, Contour contour){
     return pair<int, double>(max_dist_index, max_dist);
 }
 
-void drawSegmentList(vector<vector<LineSegment>>& contour_segments, int mode){
+void drawSegmentList(vector<vector<LineSegment>>& contour_segments, cv::Mat t_image, int mode){
     // boost::timer::auto_cpu_timer profiler_draw_segments("PROFILER: draw_segments \t\t\t Time: %w secs\n");
 
-    cv::Mat image = cv::Mat::zeros(480, 640, CV_8UC3);
+    cv::Mat image = t_image;
+            //cv::Mat::zeros(480, 640, CV_8UC3);
     cv::RNG rng(3212764);
     cv::Scalar color1;
     cv::Scalar color2;
     string name;
 
     if(mode == 2){ // Right left render mode
-        color1 = cv::Scalar(0, 0, 255);
-        color2 = cv::Scalar(0, 255, 0);
+        color1 = cv::Scalar(255, 0, 0);
+        color2 = cv::Scalar(0, 0, 255);
         name = "pose";
     }else if(mode == 3){ // convex concave render mode
-        color1 = cv::Scalar(255, 255, 255); // magenta
+        color1 = cv::Scalar(0, 255, 0); // magenta
         color2 = cv::Scalar(255, 0, 0);
         name = "convexity";
     }else if(mode == 4){ // depth curve discontinuity
@@ -338,16 +347,19 @@ void drawSegmentList(vector<vector<LineSegment>>& contour_segments, int mode){
                (line_segment.isBackground() && mode == 5) ||
                (line_segment.isDepthDiscontinuity() && mode == 4) ||
                mode == 1){
-                cv::line(image, line_segment.getStartPos(), line_segment.getEndPos(), color1);
+                cv::line(image, line_segment.getStartPos(), line_segment.getEndPos(), color1, 3);
             }else if((line_segment.isPoseLeft() && mode == 2) ||
                     (line_segment.isConcave() && mode == 3) ||
                     (line_segment.isBackground() && mode == 5) ||
                     (line_segment.isCurveDiscontinuity() && mode == 4)){
-                cv::line(image, line_segment.getStartPos(), line_segment.getEndPos(), color2);
+                cv::line(image, line_segment.getStartPos(), line_segment.getEndPos(), color2, 3);
             }
         }
     }
-     cv::imshow("Segment Feature: " + name, image);
+    char path[100];
+    std::sprintf(path, "/home/ynki9/Desktop/ynk_img/test11/%s.png", name.c_str());
+//    cv::imwrite(std::string(path), image);
+    cv::imshow(name, image);
 
 }
 

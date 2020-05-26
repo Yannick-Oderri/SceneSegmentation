@@ -87,6 +87,7 @@ SET(project_edge_SOURCE
         dataflow/pipeline_filter.cpp
 
         utils/helper.cpp
+        utils/wiener_filter.cpp
 
         draw/drawable.cpp
         draw/line_sgmnt.cpp

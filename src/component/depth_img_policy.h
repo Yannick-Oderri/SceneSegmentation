@@ -86,6 +86,7 @@ public:
      */
     ContourAttributes* getContourAttributes(){return this->contour_attributes_;};
 
+    cv::Mat cuProcessCurveDiscontinuity(FrameElement *const frame_element, EdgeParameters *const edge_param);
 };
 
 
