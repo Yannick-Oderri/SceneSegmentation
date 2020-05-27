@@ -50,7 +50,8 @@ SobelTex(float* in_data, float* out_data, unsigned int Pitch,
 
 
 // Wrapper for the __global__ call that sets up the texture and threads
-extern "C" void sobelFilter(Pixel *in_data, Pixel* out_data, int iw, int ih, float fScale, cudaTextureObject_t tex)
+extern "C" void sobelFilter(Pixel *in_data, Pixel* out_data, int iw, int ih)
 {
+
     SobelTex<<<ih, iw/2>>>(in_data, out_data, iw, iw, ih, fScale, tex);
 }

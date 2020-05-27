@@ -1,17 +1,61 @@
 //
 // Created by ynki9 on 5/25/20.
 //
+#include "utils/cuda_helper.cuh"
+__device__ unsigned char
+ComputeSobel(unsigned char ul, // upper left
+             unsigned char um, // upper middle
+             unsigned char ur, // upper right
+             unsigned char ml, // middle left
+             unsigned char mm, // middle (unused)
+             unsigned char mr, // middle right
+             unsigned char ll, // lower left
+             unsigned char lm, // lower middle
+             unsigned char lr, // lower right
+             float fScale)
+{
+    short Horz = ur + 2*mr + lr - ul - 2*ml - ll;
+    short Vert = ul + 2*um + ur - ll - 2*lm - lr;
+    short Sum = (short)(fScale*(abs((int)Horz)+abs((int)Vert)));
+
+    if (Sum < 0)
+    {
+        return 0;
+    }
+    else if (Sum > 0xff)
+    {
+        return 0xff;
+    }
+
+    return (unsigned char) Sum;
+}
 
 __global__
-void contourDisc_kernel(int w, int h, cudaTextureObject_t depth_tex){
-    for (int i = threadIdx.x; i < w; i += blockDim.x){
+void curveDisc_kernel(float* out_data, unsigned int Pitch,
+                        int w, int h, cudaTextureObject_t tex){
+    float *res_pixel =
+            (float *)(((float *) out_data)+(blockIdx.x*Pitch));
 
+    for (int i = threadIdx.x; i < w; i++)
+    {
+//        float pix00 = tex2D<float>(tex, (float) i-1, (float) blockIdx.x-1);
+//        float pix01 = tex2D<float>(tex, (float) i+0, (float) blockIdx.x-1);
+//        float pix02 = tex2D<float>(tex, (float) i+1, (float) blockIdx.x-1);
+//        float pix10 = tex2D<float>(tex, (float) i-1, (float) blockIdx.x+0);
+//        float pix11 = tex2D<float>(tex, (float) i+0, (float) blockIdx.x+0);
+//        float pix12 = tex2D<float>(tex, (float) i+1, (float) blockIdx.x+0);
+//        float pix20 = tex2D<float>(tex, (float) i-1, (float) blockIdx.x+1);
+//        float pix21 = tex2D<float>(tex, (float) i+0, (float) blockIdx.x+1);
+//        float pix22 = tex2D<float>(tex, (float) i+1, (float) blockIdx.x+1);
+        res_pixel[i] = tex2D<float>(tex, i, blockIdx.x);
+//        res_pixel[i] = ComputeSobel(pix00, pix01, pix02,
+//                                    pix10, pix11, pix12,
+//                                    pix20, pix21, pix22, 1);
     }
 }
 
-
 __host__
-void setupDepthMap(int width, int height, cv::Mat depth_map, cudaTextureObject_t& dev_depth_tex){
+void t_setupDepthMap(int width, int height, cv::Mat depth_map, cudaTextureObject_t& dev_depth_tex){
     size_t pitch;
     float* dev_dimg;
     uchar* dimg = depth_map.data;
@@ -36,7 +80,7 @@ void setupDepthMap(int width, int height, cv::Mat depth_map, cudaTextureObject_t
     memset(&texDescr, 0x0, sizeof(cudaTextureDesc));
 
     texDescr.normalizedCoords = false;
-    texDescr.filterMode       = cudaFilterModePoint;
+    texDescr.filterMode = cudaFilterModePoint;
     texDescr.addressMode[0] = cudaAddressModeClamp;
     texDescr.addressMode[1] = cudaAddressModeClamp;
     texDescr.readMode = cudaReadModeElementType;
@@ -45,49 +89,41 @@ void setupDepthMap(int width, int height, cv::Mat depth_map, cudaTextureObject_t
 }
 
 __host__
-ContourResult* launchCurveDiscOprKernel(cv::Mat& depth_map, int window_size){
-    float4* contours;
-    float4* dev_contours;
-    ContourResult* dev_contour_results;
+cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map){
 
-    int edge_count = 0;
-    for(auto& segments: contour_segments){
-    edge_count += segments.size();
-    }
-    contours = (float4*)malloc(sizeof(float4) * edge_count);
-
-    int t_edge_index = 0;
-    for(auto& segments: contour_segments){
-    for(auto& line: segments){
-    contours[t_edge_index] = make_float4(line.getStartPos().x, line.getStartPos().y, line.getEndPos().x, line.getEndPos().y);
-    t_edge_index += 1;
-    }
-    }
-    checkCudaErrors(cudaMalloc((void**)&dev_contours, sizeof(float4) * edge_count));
-    checkCudaErrors(cudaMalloc((void**)&dev_contour_results, sizeof(ContourResult) * edge_count));
-    checkCudaErrors(cudaMemcpy(dev_contours, contours, sizeof(float4) * edge_count, cudaMemcpyHostToDevice));
+    unsigned int width = depth_map.rows;
+    unsigned int height = depth_map.cols;
 
     cudaTextureObject_t depth_tex;
-    setupDepthMap(depth_map.rows, depth_map.cols, depth_map, depth_tex);
+    t_setupDepthMap(width, height, depth_map, depth_tex);
+
+    size_t pitch = depth_map.step;
+    float *d_out;
+    checkCudaErrors(cudaMallocPitch((void**)&d_out, &pitch, sizeof(float)*width, height));
+    // cudaMalloc(&d_out, depth_map.rows*depth_map.cols*sizeof(float));
 
     /// Execute Cuda kernel
-    contourROIMean_kernel<<<1, edge_count>>>(dev_contours, dev_contour_results, depth_tex, window_size);
+    curveDisc_kernel<<<150, 1>>>(d_out, pitch, width, height, depth_tex);
 
-    ContourResult* contour_results = (ContourResult*)malloc(sizeof(ContourResult) * edge_count);
+    /// Get results to opencv mat
+    float* h_data = (float*)malloc(pitch * height);
     checkCudaErrors(cudaDeviceSynchronize());
 
-    cudaMemcpy(contour_results, dev_contour_results, sizeof(ContourResult) * edge_count, cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_data, d_out, pitch * height, cudaMemcpyDeviceToHost);
+
+    cv::Mat result(width, height, CV_32F, h_data, pitch);
 
     /// cleanup temp contours
-    free(contours);
-    checkCudaErrors(cudaFree(dev_contour_results));
-    checkCudaErrors(cudaFree(dev_contours));
+    checkCudaErrors(cudaFree(d_out));
     checkCudaErrors(cudaDestroyTextureObject(depth_tex));
 
-    return contour_results;
+    return result;
 }
 
 extern "C"
-cv::Mat* cuCurveDiscOperation(cv::Mat& depth_map, int window_size){
+cv::Mat cuCurveDiscOperation(cv::Mat& depth_map){
+    cv::Mat res = launchCurveDiscOprKernel(depth_map);
 
+    cv::imshow("test", res);
+    cv::waitKey(0);
 }

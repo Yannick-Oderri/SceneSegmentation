@@ -8,5 +8,5 @@
 #include <opencv2/opencv.hpp>
 
 extern "C"
-cv::Mat* cuCurveDiscOperation(cv::Mat& depth_map, int window_size);
+cv::Mat cuCurveDiscOperation(cv::Mat& depth_map);
 #endif //PROJECT_EDGE_CUDA_DEPTH_IMG_OPR_H

@@ -10,8 +10,8 @@ OPTION(ENABLE_OPENGL "Enable OpenGL support" ON)
 OPTION(ENABLE_OPENCV "Enable OpenCV support" ON)
 OPTION(ENABLE_BOOST "Enable Boost support" ON)
 OPTION(ENABLE_FREENECT2 "Enable Kinectv2 Drivers" ON) # not functional atm
-OPTION(PACKAGE_TESTS "Build the tests" OFF)
-OPTION(PACKAGE_RUNTIME "Build runtime files" ON)
+OPTION(PACKAGE_TESTS "Build the tests" ON)
+OPTION(PACKAGE_RUNTIME "Build runtime files" OFF)
 
 # ========================================================
 # = Project Settings
@@ -82,12 +82,15 @@ SET(project_edge_SOURCE
         component/contour_policy.cpp
         component/depth_img_policy.cpp
         component/cuda_contour_operations.cu
+        component/cuda_depth_img_opr.cu
 
         dataflow/pipeline.cpp
         dataflow/pipeline_filter.cpp
 
         utils/helper.cpp
+        # utils/cuda_helper.cu
         utils/wiener_filter.cpp
+
 
         draw/drawable.cpp
         draw/line_sgmnt.cpp

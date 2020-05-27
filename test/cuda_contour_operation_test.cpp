@@ -34,7 +34,7 @@ TEST (DISABLED_cudaContourOperationUnitTest, ContourOperation) {
 }
 
 
-TEST (CudaEdgeOprTest, ContourOperation) {
+TEST (DISABLED_CudaEdgeOprTest, ContourOperation) {
     /// Initialize Application context
     AppContextBuilder app_ctx_builder;
     app_ctx_builder.setViewPortDimensions(800, 640);
@@ -60,7 +60,7 @@ TEST (CudaEdgeOprTest, ContourOperation) {
 
 
 
-TEST (DISABLED_longcudaContourOperationUnitTest, ContourOperation) {
+TEST (longcudaContourOperationUnitTest, ContourOperation) {
     /// Initialize Application context
     AppContextBuilder app_ctx_builder;
     app_ctx_builder.setViewPortDimensions(800, 640);

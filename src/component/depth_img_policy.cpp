@@ -4,6 +4,7 @@
 
 #include <glad/glad.h>
 #include "depth_img_policy.h"
+#include "cuda_depth_img_opr.h"
 #include <boost/log/trivial.hpp>
 #include <boost/timer/timer.hpp>
 #include <utils/wiener_filter.h>
@@ -40,7 +41,7 @@ bool DepthImagePolicy::executePolicy() {
     }
 
 
-    cv::Mat curve_disc = this->glProcessCurveDiscontinuity(this->parent_window_, frame_element, &edge_params);
+    cv::Mat curve_disc = this->cuProcessCurveDiscontinuity(frame_element, &edge_params); //this->glProcessCurveDiscontinuity(this->parent_window_, frame_element, &edge_params);
     cv::Mat depth_disc = this->processDepthDiscontinuity(this->parent_window_, frame_element);
 
     cv::Mat skel = curve_disc | depth_disc;
@@ -291,7 +292,9 @@ void DepthImagePolicy::intializeGLParams(AppContext* const ctxt) {
 
 
 cv::Mat DepthImagePolicy::cuProcessCurveDiscontinuity(FrameElement* const frame_element, EdgeParameters* const edge_param){
-
+    cv::Mat depth_img = frame_element->getDepthFrameData()->getcvMat();
+    cv::Mat res = cuCurveDiscOperation(depth_img);
+    return res;
 }
 
 cv::Mat DepthImagePolicy::glProcessCurveDiscontinuity(GLFWwindow* const glContext,
@@ -374,13 +377,13 @@ cv::Mat DepthImagePolicy::glProcessCurveDiscontinuity(GLFWwindow* const glContex
     std::vector<cv::Mat> channels(4);
     cv::split(this->curve_disc_buffer_, channels);
 
-    cv::Mat res();
+    cv::Mat res;
 
     WienerFilter(channels[0], channels[1], -1, cv::Size(9, 9));
 
     cv::imshow("Wiener Result", channels[1]);
 
-    // cv::medianBlur(channels[0], channels[1], 5);
+    cv::medianBlur(channels[0], channels[1], 5);
     cv::Canny(channels[1], res, 43.0, 90.0);
     cv::imshow("Wiener 2", res);
 
