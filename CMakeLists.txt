@@ -146,7 +146,7 @@ INCLUDE_DIRECTORIES(
 # = Cuda Support
 # ========================================================
 IF(ENABLE_CUDA)
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}") # -g -G")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -g -G")
   find_library(CUDART_LIBRARY cudart ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
 
   INCLUDE_DIRECTORIES(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
@@ -171,8 +171,8 @@ ENDIF()
 # = Dear IMGUI
 # ========================================================
 IF(ENABLE_IMGUI)
-  INCLUDE_DIRECTORIES("${project_edge_VENDOR_DIR}/imgui")
-  INCLUDE_DIRECTORIES("${project_edge_VENDOR_DIR}/imgui/examples")
+  INCLUDE_DIRECTORIES( "${project_edge_VENDOR_DIR}/imgui" )
+  INCLUDE_DIRECTORIES( "${project_edge_VENDOR_DIR}/imgui/examples" )
   SET(imgui_src
           "${project_edge_VENDOR_DIR}/imgui/imgui.cpp"
           "${project_edge_VENDOR_DIR}/imgui/imgui_widgets.cpp"

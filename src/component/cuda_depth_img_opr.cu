@@ -31,26 +31,29 @@ ComputeSobel(unsigned char ul, // upper left
 }
 
 __global__
-void curveDisc_kernel(float* out_data, unsigned int Pitch,
+void curveDisc_kernel(float* out_data, int Pitch,
                         int w, int h, cudaTextureObject_t tex){
     float *res_pixel =
-            (float *)(((float *) out_data)+(blockIdx.x*Pitch));
+            (float *)(((char*)out_data)+(blockIdx.x*Pitch));
 
+    res_pixel[threadIdx.x] = 20;
+    int start = threadIdx.x * (w / threadDim.x);
+    int end = start + threadDim.x;
     for (int i = threadIdx.x; i < w; i++)
     {
-//        float pix00 = tex2D<float>(tex, (float) i-1, (float) blockIdx.x-1);
-//        float pix01 = tex2D<float>(tex, (float) i+0, (float) blockIdx.x-1);
-//        float pix02 = tex2D<float>(tex, (float) i+1, (float) blockIdx.x-1);
-//        float pix10 = tex2D<float>(tex, (float) i-1, (float) blockIdx.x+0);
-//        float pix11 = tex2D<float>(tex, (float) i+0, (float) blockIdx.x+0);
-//        float pix12 = tex2D<float>(tex, (float) i+1, (float) blockIdx.x+0);
-//        float pix20 = tex2D<float>(tex, (float) i-1, (float) blockIdx.x+1);
-//        float pix21 = tex2D<float>(tex, (float) i+0, (float) blockIdx.x+1);
-//        float pix22 = tex2D<float>(tex, (float) i+1, (float) blockIdx.x+1);
+        float pix00 = tex2D<float>(tex, (float) i-1, (float) blockIdx.x-1);
+        float pix01 = tex2D<float>(tex, (float) i+0, (float) blockIdx.x-1);
+        float pix02 = tex2D<float>(tex, (float) i+1, (float) blockIdx.x-1);
+        float pix10 = tex2D<float>(tex, (float) i-1, (float) blockIdx.x+0);
+        float pix11 = tex2D<float>(tex, (float) i+0, (float) blockIdx.x+0);
+        float pix12 = tex2D<float>(tex, (float) i+1, (float) blockIdx.x+0);
+        float pix20 = tex2D<float>(tex, (float) i-1, (float) blockIdx.x+1);
+        float pix21 = tex2D<float>(tex, (float) i+0, (float) blockIdx.x+1);
+        float pix22 = tex2D<float>(tex, (float) i+1, (float) blockIdx.x+1);
         res_pixel[i] = tex2D<float>(tex, i, blockIdx.x);
-//        res_pixel[i] = ComputeSobel(pix00, pix01, pix02,
-//                                    pix10, pix11, pix12,
-//                                    pix20, pix21, pix22, 1);
+        res_pixel[i] = ComputeSobel(pix00, pix01, pix02,
+                                    pix10, pix11, pix12,
+                                    pix20, pix21, pix22, 1);
     }
 }
 
@@ -91,19 +94,23 @@ void t_setupDepthMap(int width, int height, cv::Mat depth_map, cudaTextureObject
 __host__
 cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map){
 
-    unsigned int width = depth_map.rows;
-    unsigned int height = depth_map.cols;
+    unsigned int height = depth_map.rows;
+    unsigned int width = depth_map.cols;
 
     cudaTextureObject_t depth_tex;
     t_setupDepthMap(width, height, depth_map, depth_tex);
 
-    size_t pitch = depth_map.step;
+    size_t pitch;
     float *d_out;
     checkCudaErrors(cudaMallocPitch((void**)&d_out, &pitch, sizeof(float)*width, height));
     // cudaMalloc(&d_out, depth_map.rows*depth_map.cols*sizeof(float));
 
     /// Execute Cuda kernel
-    curveDisc_kernel<<<150, 1>>>(d_out, pitch, width, height, depth_tex);
+    dim3 threadPerBlock(16, 16);
+    int blockCount = 480; //depth_map.cols;
+    int step = (int)pitch;
+
+    curveDisc_kernel<<<480, 16>>>(d_out, step, width, height, depth_tex);
 
     /// Get results to opencv mat
     float* h_data = (float*)malloc(pitch * height);
@@ -111,7 +118,7 @@ cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map){
 
     cudaMemcpy(h_data, d_out, pitch * height, cudaMemcpyDeviceToHost);
 
-    cv::Mat result(width, height, CV_32F, h_data, pitch);
+    cv::Mat result(height, width, CV_32F, h_data, pitch);
 
     /// cleanup temp contours
     checkCudaErrors(cudaFree(d_out));
@@ -125,5 +132,6 @@ cv::Mat cuCurveDiscOperation(cv::Mat& depth_map){
     cv::Mat res = launchCurveDiscOprKernel(depth_map);
 
     cv::imshow("test", res);
+    cv::imwrite("test.png", res);
     cv::waitKey(0);
 }
