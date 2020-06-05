@@ -41,7 +41,8 @@ bool DepthImagePolicy::executePolicy() {
     }
 
 
-    cv::Mat curve_disc = this->cuProcessCurveDiscontinuity(frame_element, &edge_params); //this->glProcessCurveDiscontinuity(this->parent_window_, frame_element, &edge_params);
+    cv::Mat curve_disc = this->cuProcessCurveDiscontinuity(frame_element, &edge_params);
+//    cv::Mat curve_disc = this->glProcessCurveDiscontinuity(this->parent_window_, frame_element, &edge_params);
     cv::Mat depth_disc = this->processDepthDiscontinuity(this->parent_window_, frame_element);
 
     cv::Mat skel = curve_disc | depth_disc;
@@ -292,7 +293,7 @@ void DepthImagePolicy::intializeGLParams(AppContext* const ctxt) {
 
 
 cv::Mat DepthImagePolicy::cuProcessCurveDiscontinuity(FrameElement* const frame_element, EdgeParameters* const edge_param){
-    cv::Mat depth_img = frame_element->getDepthFrameData()->getcvMat();
+    cv::Mat depth_img = frame_element->getDepthFrameData()->getNDepthImage();
     cv::Mat res = cuCurveDiscOperation(depth_img);
     return res;
 }
@@ -327,7 +328,7 @@ cv::Mat DepthImagePolicy::glProcessCurveDiscontinuity(GLFWwindow* const glContex
 /// Rendering Routine
     // first pass -- Gradient Shader
     this->shdr_normal_.use();
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, this->shdr_median_blur_.getFramebufferTextureID());
     glClearColor(0.8f, 0.8f, 0.8f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     // render viewport rectangle
@@ -338,24 +339,24 @@ cv::Mat DepthImagePolicy::glProcessCurveDiscontinuity(GLFWwindow* const glContex
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
     // Perform Media Blur
-//    this->shdr_median_blur_.use();
-//    glBindFramebuffer(GL_FRAMEBUFFER, this->shdr_median_blur_.getFramebufferTextureID());
-//    glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
-//    glClear(GL_COLOR_BUFFER_BIT);
-//    glBindVertexArray(this->fb_quad_vao_);
-//    glActiveTexture(GL_TEXTURE0);
-//    glad_glBindTexture(GL_TEXTURE_RECTANGLE, this->shdr_normal_.getFramebufferTextureID());
-//    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+    this->shdr_median_blur_.use();
+    glBindFramebuffer(GL_FRAMEBUFFER, this->shdr_median_blur_.getFramebufferTextureID());
+    glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glBindVertexArray(this->fb_quad_vao_);
+    glActiveTexture(GL_TEXTURE0);
+    glad_glBindTexture(GL_TEXTURE_RECTANGLE, this->shdr_normal_.getFramebufferTextureID());
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
     // second pass -- black and white
-//    this->shdr_blk_whte_.use();
-//    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-//    glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
-//    glClear(GL_COLOR_BUFFER_BIT);
-//    glBindVertexArray(this->fb_quad_vao_);
-//    glActiveTexture(GL_TEXTURE0); // TEXTURE0 image location
-//    glBindTexture(GL_TEXTURE_RECTANGLE, this->shdr_median_blur_.getFramebufferTextureID());
-//    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+    this->shdr_blk_whte_.use();
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glBindVertexArray(this->fb_quad_vao_);
+    glActiveTexture(GL_TEXTURE0); // TEXTURE0 image location
+    glBindTexture(GL_TEXTURE_RECTANGLE, this->shdr_median_blur_.getFramebufferTextureID());
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
     // render your GUI
     updateBWParameters(&this->shdr_blk_whte_);
@@ -384,10 +385,10 @@ cv::Mat DepthImagePolicy::glProcessCurveDiscontinuity(GLFWwindow* const glContex
     cv::imshow("Wiener Result", channels[1]);
 
     cv::medianBlur(channels[0], channels[1], 5);
-    cv::Canny(channels[1], res, 43.0, 90.0);
+    cv::Canny(channels[1], res, 200.0, 240.0);
     cv::imshow("Wiener 2", res);
 
-
+    cv::waitKey(0);
     return res;
 }
 

@@ -2,6 +2,8 @@
 // Created by ynki9 on 5/25/20.
 //
 #include "utils/cuda_helper.cuh"
+#include <npp.h>
+
 __device__ unsigned char
 ComputeSobel(unsigned char ul, // upper left
              unsigned char um, // upper middle
@@ -36,9 +38,6 @@ void curveDisc_kernel(float* out_data, int Pitch,
     float *res_pixel =
             (float *)(((char*)out_data)+(blockIdx.x*Pitch));
 
-    res_pixel[threadIdx.x] = 20;
-    int start = threadIdx.x * (w / threadDim.x);
-    int end = start + threadDim.x;
     for (int i = threadIdx.x; i < w; i++)
     {
         float pix00 = tex2D<float>(tex, (float) i-1, (float) blockIdx.x-1);
@@ -94,44 +93,161 @@ void t_setupDepthMap(int width, int height, cv::Mat depth_map, cudaTextureObject
 __host__
 cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map){
 
-    unsigned int height = depth_map.rows;
-    unsigned int width = depth_map.cols;
+    int height = depth_map.rows;
+    int width = depth_map.cols;
 
-    cudaTextureObject_t depth_tex;
-    t_setupDepthMap(width, height, depth_map, depth_tex);
 
-    size_t pitch;
-    float *d_out;
-    checkCudaErrors(cudaMallocPitch((void**)&d_out, &pitch, sizeof(float)*width, height));
+
+    int pitch;
+    float *img_data = (float*)depth_map.data;
+
+    Npp32f* dev_img = nppiMalloc_32f_C1(width, height, &pitch);
+    Npp32f* scratch_buffer = nppiMalloc_32f_C1(width, height, &pitch);
+    Npp32f* x_grad = nppiMalloc_32f_C1(width, height, &pitch);
+    Npp32f* y_grad = nppiMalloc_32f_C1(width, height, &pitch);
+    Npp32f* mag_grad = nppiMalloc_32f_C1(width, height, &pitch);
+    Npp32f* ang_grad = nppiMalloc_32f_C1(width, height, &pitch);
+
+    NppiSize src_size = {width, height};
+    float channel_noise[] = {0.0000011f};
+
+    //nppiCopy_32f_C1R(img_data, depth_map.step, dev_img, pitch, src_size);
+    checkCudaErrors(cudaMemcpy2D(dev_img, pitch, img_data, depth_map.step, sizeof(float)*width,
+                                 height, cudaMemcpyHostToDevice));
     // cudaMalloc(&d_out, depth_map.rows*depth_map.cols*sizeof(float));
+    NppStatus res;
 
-    /// Execute Cuda kernel
-    dim3 threadPerBlock(16, 16);
-    int blockCount = 480; //depth_map.cols;
-    int step = (int)pitch;
+//    res = nppiFilterWienerBorder_32f_C1R(
+//            dev_img,
+//            pitch,
+//            src_size,
+//            {0, 0},
+//            scratch_buffer,
+//            pitch,
+//            src_size,
+//            {5, 5},
+//            {0, 0},
+//            channel_noise,
+//            NppiBorderType::NPP_BORDER_REPLICATE
+//    );
+//
+//
+//    float* w_data = (float*)malloc(pitch * height);
+//    cudaMemcpy(w_data, scratch_buffer, pitch * height, cudaMemcpyDeviceToHost);
+//    cv::Mat wwienerRes(height, width, CV_32F, w_data, pitch);
+//    cv::Mat ttres;
+//    cv::normalize(wwienerRes, ttres, 0, 255, CV_MINMAX, CV_8U);
+//    cv::imshow("1st Wiener Filtered", ttres);
+//
+//
+//    Npp32f* t_addr = dev_img;
+//    dev_img = scratch_buffer;
+//    scratch_buffer = t_addr;
 
-    curveDisc_kernel<<<480, 16>>>(d_out, step, width, height, depth_tex);
+    res = nppiFilterMedian_32f_C1R(
+            dev_img,
+            pitch,
+            scratch_buffer,
+            pitch,
+            {width, height},
+            {5, 5},
+            {0, 0},
+            reinterpret_cast<Npp8u *>(x_grad)
+    );
+
+    Npp32f* t_addr = dev_img;
+    dev_img = scratch_buffer;
+    scratch_buffer = t_addr;
+
+    res = nppiGradientVectorSobelBorder_32f_C1R(
+            dev_img,
+            pitch,
+            src_size,
+            {0,0},
+            x_grad,
+            pitch,
+            y_grad,
+            pitch,
+            mag_grad,
+            pitch,
+            ang_grad,
+            pitch, {640, 480},
+            NppiMaskSize::NPP_MASK_SIZE_5_X_5,
+            NppiNorm::nppiNormL1,
+            NppiBorderType::NPP_BORDER_REPLICATE
+            );
+
+    if(res != 0){
+        std::cout << "NPPI Error: " << res;
+    }
+
+    res = nppiFilterMedian_32f_C1R(
+            ang_grad,
+            pitch,
+            scratch_buffer,
+            pitch,
+            {width, height},
+            {5, 5},
+            {3, 3},
+            reinterpret_cast<Npp8u *>(x_grad)
+            );
+//    channel_noise[0] = 0.00100001f;
+//    res = nppiFilterWienerBorder_32f_C1R(
+//            ang_grad,
+//            pitch,
+//            src_size,
+//            {0, 0},
+//            scratch_buffer,
+//            pitch,
+//            src_size,
+//            {12, 12},
+//            {0, 0},
+//            channel_noise,
+//            NppiBorderType::NPP_BORDER_REPLICATE
+//    );
+
+    if(res != 0){
+        std::cout << "NPPI Error: " << res;
+    }
 
     /// Get results to opencv mat
     float* h_data = (float*)malloc(pitch * height);
-    checkCudaErrors(cudaDeviceSynchronize());
+    float* w_data = (float*)malloc(pitch * height);
 
-    cudaMemcpy(h_data, d_out, pitch * height, cudaMemcpyDeviceToHost);
-
+    cudaMemcpy(h_data, ang_grad, pitch * height, cudaMemcpyDeviceToHost);
     cv::Mat result(height, width, CV_32F, h_data, pitch);
+    cv::imshow("test", result);
 
-    /// cleanup temp contours
-    checkCudaErrors(cudaFree(d_out));
-    checkCudaErrors(cudaDestroyTextureObject(depth_tex));
+    cudaMemcpy(w_data, scratch_buffer, pitch * height, cudaMemcpyDeviceToHost);
+    cv::Mat wienerRes(height, width, CV_32F, w_data, pitch);
+    cv::imshow("Wiener Filtered", wienerRes);
+
+    cv::Mat tres;
+    cv::normalize(wienerRes, tres, 0, 255, CV_MINMAX, CV_8U);
+    cv::Canny(tres, result, 140, 225);
+
+
+    cv::imshow("canny result", result);
+    cv::imwrite("canny.png", result);
+
+    cv::morphologyEx(result, result, cv::MORPH_CLOSE,
+                     cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5)));
+
+    cv::imshow("morph res", result);
 
     return result;
 }
 
 extern "C"
 cv::Mat cuCurveDiscOperation(cv::Mat& depth_map){
-    cv::Mat res = launchCurveDiscOprKernel(depth_map);
+    cv::Mat tres = launchCurveDiscOprKernel(depth_map);
+    cv::Mat res(tres.size(), CV_32F);
+    //cv::normalize(tres, res, 0, 1, CV_MINMAX, CV_32F);
+    //cv::normalize(depth_map, depth_map, 0, 1, CV_MINMAX, CV_32F);
 
-    cv::imshow("test", res);
-    cv::imwrite("test.png", res);
+    cv::imshow("Initial Image", depth_map);
+
+
     cv::waitKey(0);
+    cv::imwrite("test.png", tres);
 }

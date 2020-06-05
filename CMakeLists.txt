@@ -147,11 +147,17 @@ INCLUDE_DIRECTORIES(
 # ========================================================
 IF(ENABLE_CUDA)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -g -G")
+  find_package(CUDA)
+
   find_library(CUDART_LIBRARY cudart ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
+  find_library(CUDA_npp_LIBRARY nppif STATIC ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
+  MESSAGE(STATUS "test ${CUDA_npp_LIBRARY}")
 
   INCLUDE_DIRECTORIES(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
   LIST(APPEND project_edge_LIBRARIES
-          ${CUDART_LIBRARY})
+          ${CUDART_LIBRARY}
+          ${CUDA_npp_LIBRARY})
+
   #LIST(APPEND project_edge_src
    #       cuda_ransac.cu)
 ENDIF()
@@ -304,6 +310,7 @@ IF(PACKAGE_TESTS)
           PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
   TARGET_LINK_LIBRARIES(project_edge_lib
           ${project_edge_LIBRARIES}
+          ${CUDA_nppif_Library}
   )
   TARGET_INCLUDE_DIRECTORIES(
           project_edge_lib
