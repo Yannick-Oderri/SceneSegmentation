@@ -72,7 +72,7 @@ TEST (longcudaContourOperationUnitTest, ContourOperation) {
     DepthImagePolicy dimg_policy(app_ctx);
 
     ResMgr* resMgr = app_ctx->getResMgr();
-    SimpleImageProducer frame_producer(resMgr, 50);
+    SimpleImageProducer frame_producer(resMgr, 12);
     frame_producer.initialize();
     FrameElement* frame_element = frame_producer.generateCurrentFrame();
 

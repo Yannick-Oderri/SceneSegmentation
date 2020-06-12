@@ -18,6 +18,7 @@
 
 using namespace std;
 
+#define DEBUG_CNTR_PLCY_IMG_RESULTS;
 
 
 // Forward Declarations
@@ -46,6 +47,7 @@ bool LineSegmentContourPolicy::executePolicy() {
 
     // Calculate contour features
     calculateContourFeatures(contour_segments, contours, frame_element, contour_operation_res);
+#ifdef DEBUG_CNTR_PLCY_IMG_RESULTS
     // render line feature
     cv::Mat t_image = frame_element.getColorFrameElement()->clone();
     cv::Mat l_image = frame_element.getColorFrameElement()->clone();
@@ -55,6 +57,7 @@ bool LineSegmentContourPolicy::executePolicy() {
         }
         drawSegmentList(contour_segments, t_image, i);
     }
+#endif
 
 //    cv::waitKey(0);
 
@@ -62,7 +65,10 @@ bool LineSegmentContourPolicy::executePolicy() {
     vector<LinePair> line_pairs = pairContourSegments(contour_segments, contours);
     cv::Mat drawing = cv::Mat::zeros( frame_element.getContourFrame().size(), CV_8UC3 );
     frame_element.getColorFrameElement()->copyTo(drawing);
+#ifdef DEBUG_CNTR_PLCY_IMG_RESULTS
     drawLinePairs(line_pairs, drawing);
+    cv::waitKey(0);
+#endif
 
     return true;
 }
@@ -192,7 +198,7 @@ void drawLinePairs(vector<LinePair>& line_pairs, cv::Mat& color_image){
 
     cv::imshow("Paired Lines", color_image);
 //    cv::imwrite("/home/ynki9/Desktop/ynk_img/test11/edge_detect.png", color_image);
-    cv::waitKey(1);
+    //cv::waitKey(1);
 }
 
 vector<LinePair> pairContourSegments(vector<vector<LineSegment>>& contour_segments, Contours& contour_set){

@@ -67,14 +67,19 @@ public:
             return;
         }
 
+        // Load Color Image
         char name_buff[20];
         std::sprintf(name_buff, "ctest%d.png", image_idx_);
         color_image_ = this->res_mgr_->loadColorImage(string(name_buff), cv::IMREAD_COLOR);
-
+        // Load Depth Image
         std::sprintf(name_buff, "test%d.png", image_idx_);
         cv::Mat t_depth_img = this->res_mgr_->loadDepthImage(string(name_buff), cv::IMREAD_UNCHANGED);
 
+        // Extract ROI of depth image
+        cv::Mat t_mask = (t_depth_img < 300) | (t_depth_img > 1500);
+        t_depth_img.setTo(0, t_mask);
 
+        // Cast to float and perform normalization
         double min_val, max_val;
         cv::minMaxLoc(t_depth_img, &min_val, &max_val);
         t_depth_img.convertTo(depth_image_, CV_32F, 1.0, 0);

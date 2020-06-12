@@ -15,7 +15,7 @@
 
 void generateProcessingPipeline(AppContext* const context){
     /// Image pipeline loader
-    SimpleImageProducer producer(context->getResMgr(), 50, 100);
+    SimpleImageProducer producer(context->getResMgr(), 12, 100);
     producer.initialize();
 
     /// Depth Image Pipeline

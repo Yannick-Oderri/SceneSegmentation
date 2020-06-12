@@ -367,7 +367,6 @@ void GLEdgeDiscFilter::start() {
             done = (max == 0);
         } while (!done);
 
-
         // cv::imshow("Mix Edges", skel);
 
 //        free(new_buffer);

@@ -45,17 +45,41 @@ bool DepthImagePolicy::executePolicy() {
 //    cv::Mat curve_disc = this->glProcessCurveDiscontinuity(this->parent_window_, frame_element, &edge_params);
     cv::Mat depth_disc = this->processDepthDiscontinuity(this->parent_window_, frame_element);
 
-    cv::Mat skel = curve_disc | depth_disc;
-    cv::morphologyEx(skel, skel, cv::MORPH_CLOSE,
-            cv::getStructuringElement(cv::MORPH_RECT, cv::Size(edge_params.MorphologySize, edge_params.MorphologySize)));
+    cv::morphologyEx(depth_disc, depth_disc, cv::MORPH_CLOSE,
+                     cv::getStructuringElement(cv::MORPH_RECT, cv::Size(6, 6)));
+    cv::morphologyEx(curve_disc, curve_disc, cv::MORPH_CLOSE,
+                     cv::getStructuringElement(cv::MORPH_RECT, cv::Size(6, 6)));
 
+    cv::Mat img = curve_disc | depth_disc;
+    cv::imshow("dd & cd", img);
+
+    cv::Mat skel(img.size(), CV_8UC1, cv::Scalar(0));
+    cv::Mat temp;
+    cv::Mat eroded;
+
+    cv::Mat element = cv::getStructuringElement(cv::MORPH_CROSS, cv::Size(3, 3));
+
+    bool done;
+    do
+    {
+        cv::erode(img, eroded, element);
+        cv::dilate(eroded, temp, element); // temp = open(img)
+        cv::subtract(img, temp, temp);
+        cv::bitwise_or(skel, temp, skel);
+        eroded.copyTo(img);
+
+        done = (cv::countNonZero(img) == 0);
+    } while (!done);
+
+    cv::morphologyEx(skel, skel, cv::MORPH_CLOSE,
+                     cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3)));
+
+    cv::imshow("preprocessed contour", skel);
 
     std::vector<std::vector<cv::Point> > t_contours;
     std::vector<std::vector<cv::Point> > contours;
     std::vector<cv::Vec4i> hierarchy;
 
-    /// Find contours
-    threshold(skel, skel, 20, 255, cv::THRESH_BINARY );
     //cv::imshow("skel", skel);
     cv::findContours( skel, t_contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_NONE, cv::Point(0, 0) );
     // ImageFrame *new_frame = new ImageFrame(frame->width, frame->height, 4*sizeof(float), new_buffer);
@@ -110,7 +134,7 @@ bool DepthImagePolicy::executePolicy() {
 //    cv::imwrite("/home/ynki9/Desktop/ynk_img/test11/contour.png", drawing);
     //    cv::imwrite("/home/ynki9/Desktop/ynk_img/test11/depth_disc.png", depth_disc);
     //    cv::imwrite("/home/ynki9/Desktop/ynk_img/test11/curve_disc.png", curve_disc);
-    cv::waitKey(1);
+    cv::waitKey(0);
 
 
     /// Add edge information to frame element
@@ -293,7 +317,7 @@ void DepthImagePolicy::intializeGLParams(AppContext* const ctxt) {
 
 
 cv::Mat DepthImagePolicy::cuProcessCurveDiscontinuity(FrameElement* const frame_element, EdgeParameters* const edge_param){
-    cv::Mat depth_img = frame_element->getDepthFrameData()->getNDepthImage();
+    cv::Mat depth_img = frame_element->getDepthFrameData()->getDepthImage();
     cv::Mat res = cuCurveDiscOperation(depth_img);
     return res;
 }
