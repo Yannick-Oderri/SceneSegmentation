@@ -4,7 +4,7 @@
 #include "utils/cuda_helper.cuh"
 #include <npp.h>
 
-//#define DEBUG_CD_OPR_OUTPUT
+#define DEBUG_CD_OPR_OUTPUT
 
 __global__
 void wiener2_noise(cudaTextureObject_t src_img, NppiSize src_size, Npp32f* dst_img, Npp32s dst_step, Npp32f noise){
@@ -53,6 +53,9 @@ void wiener2(cudaTextureObject_t src_img, NppiSize src_size, Npp32f* dst_img, Np
         row[i] = f;
     }
 }
+
+
+
 __global__
 void gradientOperation(Npp32f* x_grad, Npp32f* y_grad,
         NppiSize src_size, Npp32f* lr_img, Npp32f* ud_img, Npp32s dst_step, Npp32f grad_tresh){
@@ -272,8 +275,8 @@ cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map){
     cv::imshow("Stage 3 UD Grad Mirroring", stage3_udgdir_img);
 #endif
 
-    float lowThresh = 0.45;
-    float highThresh = 0.75;
+    float highThresh = 0.85;
+    float lowThresh = 0.4 * highThresh;
 
     cv::Mat hori_edge(height, width, CV_8U);
     cv::Canny(stage3_lrgdir_img, hori_edge, 255*lowThresh, 255*highThresh);
@@ -281,11 +284,12 @@ cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map){
     cv::Mat vert_edge(height, width, CV_8U);
     cv::Canny(stage3_udgdir_img, vert_edge, 255*lowThresh, 255*highThresh);
 
-    cv::Mat result = hori_edge;
+    cv::Mat result = hori_edge | vert_edge;
 
 #ifdef DEBUG_CD_OPR_OUTPUT
     cv::imshow("Stage 4 CD Hori Results", hori_edge);
     cv::imshow("Stage 4 CD Vert Results", vert_edge);
+    cv::imwrite("cd_res.png", result);
     cv::imshow("Final CD Results", result);
 #endif
 
@@ -309,7 +313,7 @@ cv::Mat cuCurveDiscOperation(cv::Mat& depth_map){
     cv::Mat img = launchCurveDiscOprKernel(depth_map);
 
 #ifdef DEBUG_CD_OPR_OUTPUT
-    cv::imshow("Final CD", skel);
+    cv::imshow("Final CD", img);
     cv::waitKey(0);
 #endif
 

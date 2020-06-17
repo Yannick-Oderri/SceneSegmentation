@@ -45,10 +45,14 @@ bool DepthImagePolicy::executePolicy() {
 //    cv::Mat curve_disc = this->glProcessCurveDiscontinuity(this->parent_window_, frame_element, &edge_params);
     cv::Mat depth_disc = this->processDepthDiscontinuity(this->parent_window_, frame_element);
 
-    cv::morphologyEx(depth_disc, depth_disc, cv::MORPH_CLOSE,
-                     cv::getStructuringElement(cv::MORPH_RECT, cv::Size(6, 6)));
-    cv::morphologyEx(curve_disc, curve_disc, cv::MORPH_CLOSE,
-                     cv::getStructuringElement(cv::MORPH_RECT, cv::Size(6, 6)));
+//    cv::morphologyEx(depth_disc, depth_disc, cv::MORPH_CLOSE,
+//                     cv::getStructuringElement(cv::MORPH_RECT, cv::Size(6, 6)));
+//    cv::morphologyEx(curve_disc, curve_disc, cv::MORPH_CLOSE,
+//                     cv::getStructuringElement(cv::MORPH_RECT, cv::Size(6, 6)));
+
+    cv::dilate(curve_disc, curve_disc,
+            cv::getStructuringElement(cv::MORPH_RECT, cv::Size(8, 8)));
+
 
     cv::Mat img = curve_disc | depth_disc;
     cv::imshow("dd & cd", img);
@@ -317,6 +321,7 @@ void DepthImagePolicy::intializeGLParams(AppContext* const ctxt) {
 
 
 cv::Mat DepthImagePolicy::cuProcessCurveDiscontinuity(FrameElement* const frame_element, EdgeParameters* const edge_param){
+    boost::timer::auto_cpu_timer profiler_process_CD("PROFILER: Curve Disc Opr \t\t\t Time: %w secs\n");
     cv::Mat depth_img = frame_element->getDepthFrameData()->getDepthImage();
     cv::Mat res = cuCurveDiscOperation(depth_img);
     return res;

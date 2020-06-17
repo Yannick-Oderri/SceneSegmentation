@@ -353,7 +353,7 @@ void GLEdgeDiscFilter::start() {
         cv::Mat skel(tt_mat.size(), CV_8UC1, cv::Scalar(0));
         cv::Mat temp(tt_mat.size(), CV_8UC1);
         cv::Mat element = cv::getStructuringElement(cv::MORPH_CROSS, cv::Size(3, 3));
-        cv::morphologyEx(tt_mat, tt_mat, cv::MORPH_CLOSE, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(4, 4)));
+        //cv::morphologyEx(tt_mat, tt_mat, cv::MORPH_CLOSE, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(1, 1)));
         do
         {
             cv::morphologyEx(tt_mat, temp, cv::MORPH_OPEN, element);
