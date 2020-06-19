@@ -50,35 +50,35 @@ bool DepthImagePolicy::executePolicy() {
 //    cv::morphologyEx(curve_disc, curve_disc, cv::MORPH_CLOSE,
 //                     cv::getStructuringElement(cv::MORPH_RECT, cv::Size(6, 6)));
 
-    cv::dilate(curve_disc, curve_disc,
-            cv::getStructuringElement(cv::MORPH_RECT, cv::Size(8, 8)));
+//    cv::dilate(curve_disc, curve_disc,
+//            cv::getStructuringElement(cv::MORPH_RECT, cv::Size(8, 8)));
 
 
     cv::Mat img = curve_disc | depth_disc;
     cv::imshow("dd & cd", img);
 
-    cv::Mat skel(img.size(), CV_8UC1, cv::Scalar(0));
+    cv::Mat skel = img.clone(); //(img.size(), CV_8UC1, cv::Scalar(0));
     cv::Mat temp;
     cv::Mat eroded;
-
-    cv::Mat element = cv::getStructuringElement(cv::MORPH_CROSS, cv::Size(3, 3));
-
-    bool done;
-    do
-    {
-        cv::erode(img, eroded, element);
-        cv::dilate(eroded, temp, element); // temp = open(img)
-        cv::subtract(img, temp, temp);
-        cv::bitwise_or(skel, temp, skel);
-        eroded.copyTo(img);
-
-        done = (cv::countNonZero(img) == 0);
-    } while (!done);
-
-    cv::morphologyEx(skel, skel, cv::MORPH_CLOSE,
-                     cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3)));
-
-    cv::imshow("preprocessed contour", skel);
+//
+//    cv::Mat element = cv::getStructuringElement(cv::MORPH_CROSS, cv::Size(3, 3));
+//
+//    bool done;
+//    do
+//    {
+//        cv::erode(img, eroded, element);
+//        cv::dilate(eroded, temp, element); // temp = open(img)
+//        cv::subtract(img, temp, temp);
+//        cv::bitwise_or(skel, temp, skel);
+//        eroded.copyTo(img);
+//
+//        done = (cv::countNonZero(img) == 0);
+//    } while (!done);
+//
+//    cv::morphologyEx(skel, skel, cv::MORPH_CLOSE,
+//                     cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3)));
+//
+//    cv::imshow("preprocessed contour", skel);
 
     std::vector<std::vector<cv::Point> > t_contours;
     std::vector<std::vector<cv::Point> > contours;
