@@ -66,15 +66,17 @@ TEST (longcudaContourOperationUnitTest, ContourOperation) {
     app_ctx_builder.setViewPortDimensions(800, 640);
     app_ctx_builder.setWindowTitle("Edge App");
     app_ctx_builder.setResDir("../../data");
+    app_ctx_builder.setOutDir("./results");
+    int img_idx = 50;
 
     AppContext* const app_ctx = app_ctx_builder.Build();
 
     DepthImagePolicy dimg_policy(app_ctx);
 
     ResMgr* resMgr = app_ctx->getResMgr();
-    SimpleImageProducer frame_producer(resMgr, 1);
+    SimpleImageProducer frame_producer(resMgr, img_idx);
     frame_producer.initialize();
-    FrameElement* frame_element = frame_producer.generateCurrentFrame();
+    FrameElement* frame_element = frame_producer.generateCurrentFrame(img_idx);
 
     DepthImagePolicy depth_policy(app_ctx);
     depth_policy.intialize();
@@ -83,7 +85,33 @@ TEST (longcudaContourOperationUnitTest, ContourOperation) {
 
     ContourAttributes* contour_attribtues = depth_policy.getContourAttributes();
 
-    LineSegmentContourPolicy contour_policy;
+
+    LineSegmentContourPolicy contour_policy(app_ctx);
     contour_policy.setContourData(contour_attribtues);
     contour_policy.executePolicy();
+}
+
+TEST (DISABLED_FilterConcaveEdges, ContourOperation) {
+    /// Initialize Application context
+    AppContextBuilder app_ctx_builder;
+    app_ctx_builder.setViewPortDimensions(800, 640);
+    app_ctx_builder.setWindowTitle("Edge App");
+    app_ctx_builder.setResDir("../../data");
+    app_ctx_builder.setOutDir("./results");
+    int img_idx = 12;
+
+    AppContext* const app_ctx = app_ctx_builder.Build();
+
+    DepthImagePolicy dimg_policy(app_ctx);
+
+    ResMgr* resMgr = app_ctx->getResMgr();
+    SimpleImageProducer frame_producer(resMgr, img_idx);
+    frame_producer.initialize();
+    FrameElement* frame_element = frame_producer.generateCurrentFrame(img_idx);
+
+    DepthImagePolicy depth_policy(app_ctx);
+    depth_policy.intialize();
+    depth_policy.setFrameData(frame_element);
+    depth_policy.executePolicy();
+
 }

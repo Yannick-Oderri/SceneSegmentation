@@ -72,7 +72,6 @@ private:
     const GLuint window_height_;
     GLFWwindow* const window_;
     ResMgr* const res_mgr_;
-
 };
 
 

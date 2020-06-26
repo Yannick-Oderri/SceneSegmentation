@@ -25,6 +25,9 @@ MACRO(PACKAGE_ADD_TEST TESTNAME)
             ${project_edge_INCLUDE_DIR}
     )
 
+    TARGET_COMPILE_FEATURES(${TESTNAME}
+            PUBLIC cxx_std_14)
+
     # link the Google test infrastructure, mocking library, and a default main fuction to
     # the test executable.  Remove g_test_main if writing your own main function.
     TARGET_LINK_LIBRARIES(${TESTNAME} project_edge_lib gtest gmock gtest_main)

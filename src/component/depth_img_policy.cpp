@@ -45,6 +45,11 @@ bool DepthImagePolicy::executePolicy() {
 //    cv::Mat curve_disc = this->glProcessCurveDiscontinuity(this->parent_window_, frame_element, &edge_params);
     cv::Mat depth_disc = this->processDepthDiscontinuity(this->parent_window_, frame_element);
 
+    curve_disc = cleanDiscontinuityOpr(curve_disc) * 255;
+    depth_disc = cleanDiscontinuityOpr(depth_disc) * 255;
+
+    cv::Mat img = curve_disc | depth_disc;
+
 //    cv::morphologyEx(depth_disc, depth_disc, cv::MORPH_CLOSE,
 //                     cv::getStructuringElement(cv::MORPH_RECT, cv::Size(6, 6)));
 //    cv::morphologyEx(curve_disc, curve_disc, cv::MORPH_CLOSE,
@@ -53,38 +58,25 @@ bool DepthImagePolicy::executePolicy() {
 //    cv::dilate(curve_disc, curve_disc,
 //            cv::getStructuringElement(cv::MORPH_RECT, cv::Size(8, 8)));
 
-
-    cv::Mat img = curve_disc | depth_disc;
+#ifdef OUTPUT_INTERNAL_STAGES
+    int img_id = frame_element->getFrameID();
+    string img_path = app_context_->getResMgr()->getOutDir() + "/" + to_string(img_id) + "_cd_dd"  + ".png";
+    cv::imwrite(img_path, img);
+    img_path = app_context_->getResMgr()->getOutDir() + "/" + to_string(img_id) + "_cd" + ".png";
+    cv::imwrite(img_path, curve_disc);
+#endif
+#ifdef DEBUG_DEPTH_PLCY_IMG_RESULTS
     cv::imshow("dd & cd", img);
+#endif
 
     cv::Mat skel = img.clone(); //(img.size(), CV_8UC1, cv::Scalar(0));
     cv::Mat temp;
     cv::Mat eroded;
-//
-//    cv::Mat element = cv::getStructuringElement(cv::MORPH_CROSS, cv::Size(3, 3));
-//
-//    bool done;
-//    do
-//    {
-//        cv::erode(img, eroded, element);
-//        cv::dilate(eroded, temp, element); // temp = open(img)
-//        cv::subtract(img, temp, temp);
-//        cv::bitwise_or(skel, temp, skel);
-//        eroded.copyTo(img);
-//
-//        done = (cv::countNonZero(img) == 0);
-//    } while (!done);
-//
-//    cv::morphologyEx(skel, skel, cv::MORPH_CLOSE,
-//                     cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3)));
-//
-//    cv::imshow("preprocessed contour", skel);
 
     std::vector<std::vector<cv::Point> > t_contours;
     std::vector<std::vector<cv::Point> > contours;
     std::vector<cv::Vec4i> hierarchy;
 
-    //cv::imshow("skel", skel);
     cv::findContours( skel, t_contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_NONE, cv::Point(0, 0) );
     // ImageFrame *new_frame = new ImageFrame(frame->width, frame->height, 4*sizeof(float), new_buffer);
     // getOutQueue()->push(new_frame);
@@ -120,6 +112,8 @@ bool DepthImagePolicy::executePolicy() {
         contours.push_back(t_contours[contour_index]);
         cv::Scalar color = cv::Scalar(255,255, 255);
         drawContours( drawing, t_contours, contour_index, color, 0.8f, 8, hierarchy, 0, cv::Point() );
+//        cv::imshow("contour_restults", drawing);
+//        cv::waitKey(0);
     }
 
     /*if(contour_idx >= 0){
@@ -131,7 +125,7 @@ bool DepthImagePolicy::executePolicy() {
         results.push_back(ransac_results);
         cv::fillPoly(drawing, results, cv::Scalar(32, 32, 240));
     }*/
-
+#ifdef DEBUG_DEPTH_PLCY_IMG_RESULTS
     /// Show in a window
 //        cv::namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
     cv::imshow( "Contours", drawing );
@@ -139,7 +133,13 @@ bool DepthImagePolicy::executePolicy() {
     //    cv::imwrite("/home/ynki9/Desktop/ynk_img/test11/depth_disc.png", depth_disc);
     //    cv::imwrite("/home/ynki9/Desktop/ynk_img/test11/curve_disc.png", curve_disc);
     cv::waitKey(0);
+#endif
 
+#ifdef OUTPUT_INTERNAL_STAGES
+    img_id = frame_element->getFrameID();
+    img_path = app_context_->getResMgr()->getOutDir() + "/" + to_string(img_id) + "contours"  + ".png";
+    cv::imwrite(img_path, drawing);
+#endif
 
     /// Add edge information to frame element
     frame_element->setEdgeData(depth_disc, curve_disc, drawing);

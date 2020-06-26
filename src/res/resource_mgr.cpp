@@ -6,7 +6,8 @@
 
 
 ResMgr::ResMgr(AppContextBuilder& builder):
-res_dir_(builder.res_dir_) {}
+res_dir_(builder.res_dir_),
+out_dir_(builder.out_dir_){}
 
 
 Shader ResMgr::loadShader(string vs, string fs) {

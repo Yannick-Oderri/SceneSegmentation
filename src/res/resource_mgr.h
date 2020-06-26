@@ -56,11 +56,22 @@ public:
      * @return
      */
     string getResourceDir();
+
+    /**
+     * Return output directory
+     * @return
+     */
+    inline string getOutDir(){
+        return this->out_dir_;
+    }
+
+
 protected:
     ResMgr(){};
 
 private:
     string res_dir_;
+    string out_dir_;
     AppContext* app_ctx_;
 
 };

@@ -21,6 +21,7 @@ using Contour = vector<cv::Point>;
  */
 class PipelinePolicy {
     virtual bool executePolicy() = 0;
+
 };
 
 

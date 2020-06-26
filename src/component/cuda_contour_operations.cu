@@ -73,26 +73,26 @@ void contourROIMean_kernel(float4* edges, ContourResult* results, cudaTextureObj
     for(int i = 0; i < len; i++){
         ///--------- Perform for Edge Mean --------///
         // i,j coord in edge space
-        tex_coord.x = 0;
-        tex_coord.y = i;
-        // convert to image space
-        tex_coord = edge_space * tex_coord;
-        // translate tex_coord
-        tex_coord.x += edge.x;
-        tex_coord.y += edge.y;
-        // sample depth value at point
-        int depth_val = (int)tex2D<float>(depth_tex, (int)tex_coord.y, (int)tex_coord.x);
+//        tex_coord.x = 0;
+//        tex_coord.y = i;
+//        // convert to image space
+//        tex_coord = edge_space * tex_coord;
+//        // translate tex_coord
+//        tex_coord.x += edge.x;
+//        tex_coord.y += edge.y;
+//        // sample depth value at point
+//        int depth_val = (int)tex2D<float>(depth_tex, (int)tex_coord.y, (int)tex_coord.x);
+//
+//        if(depth_val != 0){
+//            contour_len++;
+//            result.edge_mean += (int)depth_val;
+//        }
 
-        if(depth_val != 0){
-            contour_len++;
-            result.edge_mean += (int)depth_val;
-        }
-
-        for(int j = 0; j < window_size; j++){
+        for(int j = 0; j <= window_size; j++){
             ///--------- Perform for P window --------///
             // i,j coord in edge space
             tex_coord.x = i;
-            tex_coord.y = j;
+            tex_coord.y = j*j+1;
             // convert to image space
             tex_coord = edge_space * tex_coord;
             // translate tex_coord
@@ -101,6 +101,8 @@ void contourROIMean_kernel(float4* edges, ContourResult* results, cudaTextureObj
             // sample depth value at point
             int depth_val = (int)tex2D<float>(depth_tex, (int)tex_coord.y, (int)tex_coord.x);
             result.tval[j] = depth_val;
+            result.tval[5] = tex_coord.x;
+            result.tval[6] = tex_coord.y;
 
             if(depth_val != 0){
                 p_val_count++;
@@ -109,8 +111,8 @@ void contourROIMean_kernel(float4* edges, ContourResult* results, cudaTextureObj
 
             ///--------- Perform for N window --------///
             // i,j coord in edge space
-            tex_coord.x = -1 * j;
-            tex_coord.y = i;
+            tex_coord.x = i;
+            tex_coord.y = -1*(j*j+1);
             // convert to image space
             tex_coord = edge_space * tex_coord;
             // translate tex_coord
@@ -119,7 +121,7 @@ void contourROIMean_kernel(float4* edges, ContourResult* results, cudaTextureObj
             // sample depth value at point
             depth_val = (int)tex2D<float>(depth_tex, (int)tex_coord.y, (int)tex_coord.x);
 
-            if (depth_val > 0.001){
+            if (depth_val != 0){
                 n_val_count++;
                 n_sum += (int)depth_val;
             }
@@ -130,7 +132,7 @@ void contourROIMean_kernel(float4* edges, ContourResult* results, cudaTextureObj
     result.p_region_count = p_val_count;
     result.n_region_mean = n_sum / (float)n_val_count;
     result.n_region_count = n_val_count;
-    result.edge_mean /= contour_len;
+    //result.edge_mean /= contour_len;
     result.contour_len = len;
 
 

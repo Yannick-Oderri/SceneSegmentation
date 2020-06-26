@@ -5,6 +5,8 @@
 #ifndef PROJECT_EDGE_CONTEXT_FACTORY_H
 #define PROJECT_EDGE_CONTEXT_FACTORY_H
 
+#include <boost/filesystem.hpp>
+
 #include "context/context.h"
 
 
@@ -55,6 +57,11 @@ public:
         this->res_dir_ = res_dir;
     }
 
+    inline void setOutDir(string out_dir){
+        boost::filesystem::create_directories(out_dir);
+        this->out_dir_ = out_dir;
+    }
+
 
 public:
     friend class AppContext;
@@ -69,6 +76,7 @@ public:
     string window_title_;
     string res_dir_;
     ResMgr* res_mgr_;
+    string out_dir_;
 };
 
 

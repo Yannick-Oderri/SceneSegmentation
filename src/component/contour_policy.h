@@ -6,6 +6,7 @@
 #define PROJECT_EDGE_CONTOUR_POLICY_H
 
 #include "component/pipeline_policy.h"
+#include <context/context.h>
 
 
 /**
@@ -26,11 +27,14 @@ public:
  */
 class LineSegmentContourPolicy: public ContourPolicy{
 private:
+    LineSegmentContourPolicy() = delete;
     ContourAttributes * current_contour_data_;
+    AppContext* const app_context_;
 
 public:
-    LineSegmentContourPolicy():
-            ContourPolicy(){}
+    LineSegmentContourPolicy(AppContext* const context):
+            ContourPolicy(),
+            app_context_(context){}
 
     void setContourData(ContourAttributes * contour_data){
         this->current_contour_data_ = contour_data;

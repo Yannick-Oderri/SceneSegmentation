@@ -241,9 +241,21 @@ public:
     inline cv::Mat getContourFrame(){
         return this->contour_data_;
     }
-    
+
+    /**
+     * get Frame Spawn Time
+     * @return
+     */
     double getFrameTime() const {
         return this->frame_time_;
+    }
+
+    /**
+     * get Frame ID
+     * @return
+     */
+    int getFrameID() const {
+        return this->frame_id_;
     }
 };
 

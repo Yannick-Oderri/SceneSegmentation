@@ -76,7 +76,7 @@ public:
         cv::Mat t_depth_img = this->res_mgr_->loadDepthImage(string(name_buff), cv::IMREAD_UNCHANGED);
 
         // Extract ROI of depth image
-        cv::Mat t_mask = (t_depth_img < 300) | (t_depth_img > 1500);
+        cv::Mat t_mask = (t_depth_img < 300) | (t_depth_img > 1700);
         t_depth_img.setTo(0, t_mask);
 
         // Cast to float and perform normalization

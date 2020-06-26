@@ -4,8 +4,6 @@
 #include "utils/cuda_helper.cuh"
 #include <npp.h>
 
-#define DEBUG_CD_OPR_OUTPUT
-
 __global__
 void wiener2_noise(cudaTextureObject_t src_img, NppiSize src_size, Npp32f* dst_img, Npp32s dst_step, Npp32f noise){
     Npp32f *row =
@@ -640,28 +638,35 @@ cv::Mat thin(cv::Mat& in, int n){
 }
 
 extern "C"
-cv::Mat cuCurveDiscOperation(cv::Mat& depth_map){
-    cv::Mat x = launchCurveDiscOprKernel(depth_map);
+cv::Mat cleanDiscontinuityOpr(cv::Mat& disc_img){
+    cv::Mat x = disc_img;
     cv::morphologyEx(x, x, cv::MORPH_CLOSE,
                      cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3)));
 
-    cv::Mat img = skeletonize(x, 15);
-    img = shrink(img, 10);
-    cv::imshow("test1", img*255);
-    img = clean(img);
-    img = hbreak(img, 20);
-    cv::imshow("test2", img*255);
-    img = spur(img, 20);
-    img = clean(img);
+    cv::Mat img = skeletonize(x, 10);
+//    img = shrink(img, 10);
+//    cv::imshow("test1", img*255);
+//    img = clean(img);
+//    img = hbreak(img, 20);
+//    cv::imshow("test2", img*255);
     cv::morphologyEx(img, img, cv::MORPH_CLOSE,
                      cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5)));
+//    img = clean(img);
     img = thin(img, 10);
+    img = spur(img, 10);
+
+    return img;
+}
+
+extern "C"
+cv::Mat cuCurveDiscOperation(cv::Mat& depth_map){
+    cv::Mat x = launchCurveDiscOprKernel(depth_map);
 
 
 #ifdef DEBUG_CD_OPR_OUTPUT
-    cv::imshow("Final CD", img*255);
+    cv::imshow("Final CD", x);
     cv::waitKey(0);
 #endif
 
-    return img*255;
+    return x;
 }
