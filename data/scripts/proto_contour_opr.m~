@@ -4,41 +4,29 @@
 depth = imread('/home/ynki9/Dev/ucf_research/project_edge/data/images/depth/test65.png');
 
 
-%% Load yml Color Image
-data = fopen('dd_buffer.yml');
-f = textscan(data, '%s', 'Delimiter', ',');
-v = str2double(f{:});
-gv = permute(v, [640, 480, 3]);
-dd_img = gv;
-
 %% Load yml Image
+
+% data = fopen('normals.yml');
+% f = textscan(data, '%s', 'Delimiter', ',');
+% v = str2double(f{:});
+% gv = permute(v, [640, 480, 3]);
+% normals = gv;
+
+
+%% Generate Gradient Map
+
 data = fopen('ygrad.yml');
 f = textscan(data, '%s', 'Delimiter', ',');
 v = str2double(f{:});
 gv = reshape(v, 640, 480).';
-ygrad= gv;
+ygrad = gv;
+
 
 data = fopen('xgrad.yml');
 f = textscan(data, '%s', 'Delimiter', ',');
 v = str2double(f{:});
 gv = reshape(v, 640, 480).';
-xgrad= gv;
-
-
-%% Generate Gradient Map
-
-% data = fopen('ygrad.yml');
-% f = textscan(data, '%s', 'Delimiter', ',');
-% v = str2double(f{:});
-% gv = reshape(v, 640, 480).';
-% ygrad = gv;
-% 
-% 
-% data = fopen('xgrad.yml');
-% f = textscan(data, '%s', 'Delimiter', ',');
-% v = str2double(f{:});
-% gv = reshape(v, 640, 480).';
-% xgrad = gv;
+xgrad = gv;
 
 txgrad = reshape(xgrad, [1 640*480]);
 tygrad = reshape(ygrad, [1 640*480]);
@@ -48,5 +36,4 @@ uy = reshape(tty.', [1 640*480]);
 ux = repelem(1:640, 480);
 ttx =reshape(ux, [480 640]);
 ux = reshape(ttx, [1 640*480]);
-figure;
-q = quiver(ux, uy*-1, txgrad, tygrad);
+q = quiver(ux, uy*-1, txgrad, tygrad, 3);

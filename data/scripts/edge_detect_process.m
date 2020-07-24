@@ -1,13 +1,16 @@
 clear all;
 close all;
 
-imgnum = 50;
-s1 = sprintf('/media/ynki9/DATA/dev2/Amir Code/OSD-dl/OSD-0.2-depth/disparity/test%d.png',imgnum);
+imgnum = 201;
+% s1 = sprintf('/media/ynki9/DATA/dev2/Amir Code/OSD-dl/OSD-0.2-depth/disparity/test%d.png',imgnum);
+%s1 = '/home/ynki9/Documents/occ/2020-07-18_22-44-37/generatedDepthFrame.png';
+s1 = sprintf('/home/ynki9/Dev/ucf_research/project_edge/data/images/depth/test%d.png', imgnum);
 depth_img = imread(s1);
 depth_img = double(depth_img);
+dd = edge(depth_img, 'canny', 0.05);
 dst_img = zeros(size(depth_img));
 depth_img = padarray(depth_img, [2, 2]);
-depth_img(depth_img < 300 & depth_img > 1500) = 0;
+% depth_img(depth_img < 300 & depth_img > 1500) = 0;
 noise = 4.046285945910389e+04;
 
 src_size = size(dst_img);
@@ -98,4 +101,4 @@ imshow(GdirUD, []);
 [BW_GUD,~] = edge(GdirUD,'canny',0.45);
 BW30 = or(BW_GLR,BW_GUD) ;
 figure('Name', 'CD Results');
-imshow(BW30, []);
+imshow(BW30|dd, []);
