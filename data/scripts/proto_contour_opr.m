@@ -5,24 +5,26 @@ depth = imread('/home/ynki9/Dev/ucf_research/project_edge/data/images/depth/test
 
 
 %% Load yml Color Image
-data = fopen('dd_buffer.yml');
+data = fopen('normals.yml');
 f = textscan(data, '%s', 'Delimiter', ',');
 v = str2double(f{:});
-gv = permute(v, [640, 480, 3]);
-dd_img = gv;
+gv = reshape(v, 4, 640, 480);
+gv = gv(1:3, :, :);
+normals = permute(gv, [3, 2, 1]);
 
 %% Load yml Image
-data = fopen('ygrad.yml');
-f = textscan(data, '%s', 'Delimiter', ',');
-v = str2double(f{:});
-gv = reshape(v, 640, 480).';
-ygrad= gv;
+% data = fopen('hangle.yml');
+% f = textscan(data, '%s', 'Delimiter', ',');
+% v = str2double(f{:});
+% gv = reshape(v, 640, 480).';
+% % 
+% hangle= gv;
 
-data = fopen('xgrad.yml');
+data = fopen('lrdir.yml');
 f = textscan(data, '%s', 'Delimiter', ',');
 v = str2double(f{:});
 gv = reshape(v, 640, 480).';
-xgrad= gv;
+lrdir= gv;
 
 
 %% Generate Gradient Map

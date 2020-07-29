@@ -1,11 +1,10 @@
 % clear
 % close all
-% 
-% 
-% nimg = imread('~/Downloads/normals.png');
-% for i = 1:3
-%     nimg(:, :, i) = wiener2(nimg(:, :, i), [15, 15]);
-% end
+
+nimg = normals; %imread('~/Downloads/normals.png');
+for i = 1:3
+    nimg(:, :, i) = wiener2(nimg(:, :, i), [15, 15]);
+end
 vimg = single(nimg()); %340:391, 430:464,:));
 
 
@@ -45,9 +44,9 @@ for j=2:(size(vimg, 1)-1)
 %         end        
         tval = abs(sum(hori_vals)/5);
         hori_img(j, i) = tval;
-        if tval > 1
-            hori_img(j, i) = 100;
-        end
+%         if tval > 1
+%             hori_img(j, i) = 100;
+%         end
 %         vert_img(j, i) = mean(abs(vert_vals));
     end
 end
