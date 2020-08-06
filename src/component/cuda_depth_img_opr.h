@@ -5,7 +5,9 @@
 #ifndef PROJECT_EDGE_CUDA_DEPTH_IMG_OPR_H
 #define PROJECT_EDGE_CUDA_DEPTH_IMG_OPR_H
 
+#include "utils/cuda_helper.cuh"
 #include <opencv2/opencv.hpp>
+#include <opencv2/core/cuda.hpp>
 
 extern "C" cv::Mat cuCurveDiscOperation(cv::Mat& depth_map);
 extern "C" cv::Mat cleanDiscontinuityOpr(cv::Mat& disc_img);

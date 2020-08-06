@@ -38,20 +38,20 @@ bool LineSegmentContourPolicy::executePolicy() {
     boost::timer::auto_cpu_timer profiler_contour_policy("PROFILER: Contour Policy \t\t\t Time: %w secs\n");
 
     Contours contours = this->current_contour_data_->contours;
-    FrameElement frame_element = this->current_contour_data_->frame_element;
+    FrameElement* frame_element = this->current_contour_data_->frame_element;
 
     // Segment Contours
     vector<vector<LineSegment>> contour_segments =  lineSegmentExtraction(contours, 9.0f, 14.0);
-    cv::Mat n_depth_image = frame_element.getDepthFrameData()->getcvMat();
+    cv::Mat n_depth_image = frame_element->getDepthFrameData()->getcvMat();
     ContourResult* contour_operation_res = cu_determineROIMean(contour_segments, n_depth_image, 4);
 
 
     // Calculate contour features
-    calculateContourFeatures(contour_segments, contours, frame_element, contour_operation_res);
+    calculateContourFeatures(contour_segments, contours, *frame_element, contour_operation_res);
 #ifdef DEBUG_CNTR_PLCY_IMG_RESULTS
     // render line feature
-    cv::Mat t_image = frame_element.getColorFrameElement()->clone();
-    cv::Mat l_image = frame_element.getColorFrameElement()->clone();
+    cv::Mat t_image = frame_element->getColorFrameElement()->clone();
+    cv::Mat l_image = frame_element->getColorFrameElement()->clone();
     for(int i = 1; i <= 4; i++){
 //        if (i == 2 || i == 4){
 //            t_image = l_image;
@@ -64,8 +64,8 @@ bool LineSegmentContourPolicy::executePolicy() {
 
     // Pair contours
     vector<LinePair> line_pairs = pairContourSegments(contour_segments, contours);
-    cv::Mat drawing = cv::Mat::zeros( frame_element.getContourFrame().size(), CV_8UC3 );
-    frame_element.getColorFrameElement()->copyTo(drawing);
+    cv::Mat drawing = cv::Mat::zeros( frame_element->getContourFrame().size(), CV_8UC3 );
+    frame_element->getColorFrameElement()->copyTo(drawing);
 
 
 #ifdef OUTPUT_INTERNAL_STAGES
@@ -636,9 +636,9 @@ bool validateSegmentPose(LineSegment& sgmnt_1, LineSegment& sgmnt_2){
 double getSegmentVectorRepresentation(LineSegment& sgmnt_1, LineSegment& sgmnt_2){
     int vec_count = 7;
     // Lengith Representation
-    float LENGTH_WEIGHT = 0.05;
+    float LENGTH_WEIGHT = 0.5;
     // Orientation Representation
-    float ORIENTATION_WEIGHT = 2.6f;
+    float ORIENTATION_WEIGHT = 3.6f;
     // Line sgmnt_1 pose rep
     float POSE_REP_WEIGHT = 1.33f;
     //

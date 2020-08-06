@@ -18,10 +18,10 @@ AppContext* const AppContextBuilder::Build() {
         return nullptr;
     }
 
-    if (this->initializeMainWindow() != 0){
-        BOOST_LOG_TRIVIAL(error) << "Unable to initalize Opengl Window.";
-        return nullptr;
-    }
+//    if (this->initializeMainWindow() != 0){
+//        BOOST_LOG_TRIVIAL(error) << "Unable to initalize Opengl Window.";
+//        return nullptr;
+//    }
 
     if (this->initializeResMgr() != 0) {
         BOOST_LOG_TRIVIAL(error) << "Unable to initialize Resource Manager.";

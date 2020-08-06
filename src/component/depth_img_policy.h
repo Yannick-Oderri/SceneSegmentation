@@ -8,6 +8,7 @@
 #include "component/pipeline_policy.h"
 #include "shader.hpp"
 #include "res/resource_mgr.h"
+#include "cuda_depth_img_opr.h"
 
 struct EdgeParameters{
     int MorphologySize = 5;
@@ -30,6 +31,7 @@ private:
     GLFWwindow* parent_window_;
     GLFWwindow* current_window_;
     cv::Mat curve_disc_buffer_;
+    std::deque<cv::Mat> contour_frame_queue_;
 
 
     /**

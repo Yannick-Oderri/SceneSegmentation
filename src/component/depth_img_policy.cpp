@@ -4,7 +4,6 @@
 
 #include <glad/glad.h>
 #include "depth_img_policy.h"
-#include "cuda_depth_img_opr.h"
 #include <boost/log/trivial.hpp>
 #include <boost/timer/timer.hpp>
 #include <utils/wiener_filter.h>
@@ -29,6 +28,29 @@ app_context_(app_context){
 
 void updateEdgeParameters(EdgeParameters* const params);
 
+cv::Mat processContourFrames(cv::Mat new_frame, std::deque<cv::Mat>& frame_queue){
+    cv::Mat n_frame;
+    new_frame.convertTo(n_frame, CV_16U);
+    frame_queue.push_front(n_frame);
+    if(frame_queue.size() > 16){
+        frame_queue.pop_back();
+    }
+    const int k_size[] = {1, 2, 4, 6, 8, 10};
+    cv::Mat t_frame1 = cv::Mat::zeros(new_frame.rows, new_frame.cols, n_frame.type());
+    cv::Mat t_frame2 = cv::Mat::zeros(new_frame.rows, new_frame.cols, n_frame.type());
+
+    for(int i=0; i < frame_queue.size(); i++){
+        float k_size = pow((i+1)*0.15, 2)+1;
+        cv::Size ks((int)k_size, (int)k_size);
+        cv::blur(frame_queue[i], t_frame1, ks);
+        t_frame2 = t_frame2 + t_frame1;
+    }
+    t_frame2 = t_frame2/frame_queue.size();
+
+    return t_frame2;
+
+}
+
 bool DepthImagePolicy::executePolicy() {
     boost::timer::auto_cpu_timer profiler_image_policy("PROFILER: Edge Detect \t\t\t Time: %w secs\n");
 
@@ -42,13 +64,19 @@ bool DepthImagePolicy::executePolicy() {
 
 
     cv::Mat curve_disc = this->cuProcessCurveDiscontinuity(frame_element, &edge_params);
-//    cv::Mat curve_disc = this->glProcessCurveDiscontinuity(this->parent_window_, frame_element, &edge_params);
     cv::Mat depth_disc = this->processDepthDiscontinuity(this->parent_window_, frame_element);
 
-    curve_disc = cleanDiscontinuityOpr(curve_disc) * 255;
-    depth_disc = cleanDiscontinuityOpr(depth_disc) * 255;
+    //curve_disc = cleanDiscontinuityOpr(curve_disc) * 255;
+    //depth_disc = cleanDiscontinuityOpr(depth_disc) * 255;
 
-    cv::Mat img = curve_disc | depth_disc;
+    cv::Mat img = processContourFrames(curve_disc, contour_frame_queue_);// | depth_disc;
+    cv::normalize(img, img, 255, 0, CV_MINMAX, CV_8U);
+    cv::Mat img2;
+    cv::threshold(img, img, 25, 255, CV_THRESH_BINARY);
+    cv::imshow("Filtered Frames", img);
+    //cv::imwrite("./results/filtered_contours.png", img);
+
+
 
 //    cv::morphologyEx(depth_disc, depth_disc, cv::MORPH_CLOSE,
 //                     cv::getStructuringElement(cv::MORPH_RECT, cv::Size(6, 6)));
@@ -88,7 +116,7 @@ bool DepthImagePolicy::executePolicy() {
     vector<int> to_add;
     for( int i = 0; i< t_contours.size(); i++ ) {
         double area = cv::contourArea(t_contours[i]);
-        if(area < 500) continue;
+        if(area < 350) continue;
         if(hierarchy[i][3] >= 0 && std::find(to_delete.begin(), to_delete.end(), hierarchy[i][3]) == to_delete.end())
             to_delete.push_back(hierarchy[i][3]);
 
@@ -112,7 +140,7 @@ bool DepthImagePolicy::executePolicy() {
         contours.push_back(t_contours[contour_index]);
         cv::Scalar color = cv::Scalar(255,255, 255);
         drawContours( drawing, t_contours, contour_index, color, 0.8f, 8, hierarchy, 0, cv::Point() );
-//        cv::imshow("contour_restults", drawing);
+        cv::imshow("contour_restults", drawing);
 //        cv::waitKey(0);
     }
 
@@ -142,11 +170,10 @@ bool DepthImagePolicy::executePolicy() {
 #endif
 
     /// Add edge information to frame element
-    frame_element->setEdgeData(depth_disc, curve_disc, drawing);
+    //frame_element->setEdgeData(depth_disc, curve_disc, drawing);
 
     /// Push Contour data along with frame data to next stage in pipeline
-    this->contour_attributes_ = new ContourAttributes((*frame_element), contours);
-
+    //this->contour_attributes_ = new ContourAttributes(frame_element, contours);
     return true;
 }
 

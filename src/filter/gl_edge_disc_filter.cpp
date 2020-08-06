@@ -443,7 +443,7 @@ void GLEdgeDiscFilter::start() {
         frame_element->setEdgeData(depth_canny, channels[0], drawing);
 
         /// Push Contour data along with frame data to next stage in pipeline
-        ContourAttributes* contour_data = new ContourAttributes((*frame_element), contours);
+        ContourAttributes* contour_data = new ContourAttributes(frame_element, contours);
         getOutQueue()->push(contour_data);
 
         glDeleteTextures(1, &textID);

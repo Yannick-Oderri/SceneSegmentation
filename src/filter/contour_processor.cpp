@@ -21,7 +21,7 @@ void ContourProcessorPipeFilter::start() {
 
         this->exec_policy->executePolicy();
         
-        double frame_time = contour_data->frame_element.getFrameTime();
+        double frame_time = contour_data->frame_element->getFrameTime();
         double elapse_time = glfwGetTime() - frame_time;
         BOOST_LOG_TRIVIAL(info) << "Total Frame Time: " << elapse_time;
         

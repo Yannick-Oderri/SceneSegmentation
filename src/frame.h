@@ -6,19 +6,18 @@
 #define PROJECT_EDGE_FRAME_H
 
 #include <opencv2/opencv.hpp>
-#include <libfreenect2/libfreenect2.hpp>
 #include <vector>
 #include <stdlib.h>
+
+#ifdef WITH_AZURE_KINECT
+#include <k4a/k4a.hpp>
+#endif
+
 
 using namespace std;
 
 /// Define temporary color frame element
 using ColorFrameElement = cv::Mat;
-
-/**
- * Camera Paramters for Depth camera
- */
-using DepthCameraParams = libfreenect2::Freenect2Device::IrCameraParams;
 
 /**
  * Holding class for depth frame data
@@ -35,13 +34,11 @@ public:
      * @param camera_params
      */
     DepthFrameElement(int width, int height, int channel_size,
-            const DepthCameraParams * camera_params,
             const float* data,
             const float* ndata = nullptr):
             width_(width),
             height_(height),
             bits_per_channel_(channel_size),
-            depth_camera_params_(camera_params),
             data_(data),
             ndata_(ndata)
             {}
@@ -54,7 +51,6 @@ public:
             width_(cpy.width_),
             height_(cpy.height_),
             bits_per_channel_(cpy.bits_per_channel_),
-            depth_camera_params_(cpy.depth_camera_params_),
             data_(cpy.data_),
             ndata_(cpy.ndata_)
             {}
@@ -67,6 +63,11 @@ public:
             bits_per_channel_(0),
             data_(nullptr),
             ndata_(nullptr){}
+
+    ~DepthFrameElement(){
+        free((void *) data_);
+        free((void *) ndata_);
+    }
 
     float const* const getData(){
         return this->data_;
@@ -122,22 +123,22 @@ public:
      * @return  XYZ World Coordinate
      */
     inline cv::Point3f getXYZPoint(int r, int c, float& x, float& y, float&z) const {
-        const float bad_point = std::numeric_limits<float>::quiet_NaN();
-        const float cx(depth_camera_params_->cx), cy(depth_camera_params_->cy);
-        const float fx(1/depth_camera_params_->fx), fy(1/depth_camera_params_->fy);
-        float* undistorted_data = (float *)data_;
-        const float depth_val = undistorted_data[this->height_*r+c]/(400.0f); //scaling factor, so that value of 1 is one meter.
-        if (isnan(depth_val) || depth_val <= 0.001)
-        {
-            //depth value is not valid
-            x = y = z = bad_point  ;
-        }
-        else
-        {
-            x = (c - cx) * fx * depth_val;
-            y = (r - cy) * fy * depth_val;
-            z = depth_val;
-        }
+//        const float bad_point = std::numeric_limits<float>::quiet_NaN();
+//        const float cx(depth_camera_params_->cx), cy(depth_camera_params_->cy);
+//        const float fx(1/depth_camera_params_->fx), fy(1/depth_camera_params_->fy);
+//        float* undistorted_data = (float *)data_;
+//        const float depth_val = undistorted_data[this->height_*r+c]/(400.0f); //scaling factor, so that value of 1 is one meter.
+//        if (isnan(depth_val) || depth_val <= 0.001)
+//        {
+//            //depth value is not valid
+//            x = y = z = bad_point  ;
+//        }
+//        else
+//        {
+//            x = (c - cx) * fx * depth_val;
+//            y = (r - cy) * fy * depth_val;
+//            z = depth_val;
+//        }
 
         return cv::Point3f(x, y, z);
     }
@@ -149,9 +150,6 @@ private:
     int width_; // Frame width
     int height_; // frame height
     int bits_per_channel_; // bits per pixel
-    DepthCameraParams const* depth_camera_params_; // camera parameters
-
-
 };
 
 
@@ -166,30 +164,21 @@ class FrameElement {
     cv::Mat cdiscontinuity_data_;
     cv::Mat contour_data_;
     const int frame_id_;
-    const double frame_time_;
+    const long frame_time_;
 
 public:
     /// Constructor
-    FrameElement(int frame_id, ColorFrameElement color_frame_element, DepthFrameElement depth_frame_element, double frame_time):
+    FrameElement(int frame_id, ColorFrameElement color_frame_element, DepthFrameElement* depth_frame_element, long frame_time):
             color_frame_element_(color_frame_element),
-            depth_frame_element_(depth_frame_element),
+            depth_frame_element_(*depth_frame_element),
             ddiscontinuity_data_(),
             cdiscontinuity_data_(),
             contour_data_(),
             frame_id_(frame_id),
             frame_time_(frame_time){}
 
-
-    /// Copy Contructor
-    FrameElement(const FrameElement& cpy):
-    color_frame_element_(cpy.color_frame_element_),
-    depth_frame_element_(cpy.depth_frame_element_),
-    ddiscontinuity_data_(cpy.ddiscontinuity_data_),
-    cdiscontinuity_data_(cpy.cdiscontinuity_data_),
-    contour_data_(cpy.contour_data_),
-    frame_id_(cpy.frame_id_),
-    frame_time_(cpy.frame_time_){}
-
+#ifdef WITH_AZURE_KINECT
+#endif
     /**
      * Depth Frame Element
      * @return
@@ -257,7 +246,12 @@ public:
     int getFrameID() const {
         return this->frame_id_;
     }
-};
+
+private:
+     /// Copy Contructor
+     FrameElement(const FrameElement& cpy) = delete;
+
+ };
 
 
 /**
@@ -281,11 +275,11 @@ public:
 //     contours(contour_data){}
 
      /// Copy Constructor
-     ContourAttributes(FrameElement frame_data, vector<vector<cv::Point>> contour_data):
+     ContourAttributes(FrameElement* frame_data, vector<vector<cv::Point>> contour_data):
      frame_element(frame_data),
      contours(contour_data){}
 
-     FrameElement frame_element;
+     FrameElement* frame_element;
      vector<vector<cv::Point>> contours;
  };
 

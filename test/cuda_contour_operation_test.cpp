@@ -6,6 +6,7 @@
 #include <gmock/gmock.h>
 #include "component/cu_contour_opr.h"
 #include "filter/simple_image_producer.h"
+#include "filter/k4a_bridge_producer.h"
 #include "component/contour_policy.h"
 #include "component/depth_img_policy.h"
 #include <opencv2/opencv.hpp>
@@ -60,14 +61,14 @@ TEST (DISABLED_CudaEdgeOprTest, ContourOperation) {
 
 
 
-TEST (longcudaContourOperationUnitTest, ContourOperation) {
+TEST (DISABLED_longcudaContourOperationUnitTest, ContourOperation) {
     /// Initialize Application context
     AppContextBuilder app_ctx_builder;
     app_ctx_builder.setViewPortDimensions(800, 640);
     app_ctx_builder.setWindowTitle("Edge App");
     app_ctx_builder.setResDir("../../data");
     app_ctx_builder.setOutDir("./results");
-    int img_idx = 50;
+    int img_idx = 201;
 
     AppContext* const app_ctx = app_ctx_builder.Build();
 
@@ -91,6 +92,43 @@ TEST (longcudaContourOperationUnitTest, ContourOperation) {
     contour_policy.executePolicy();
 }
 
+TEST (k4aContourOperationUnitTest, ContourOperation) {
+    /// Initialize Application context
+    AppContextBuilder app_ctx_builder;
+    app_ctx_builder.setViewPortDimensions(800, 640);
+    app_ctx_builder.setWindowTitle("Edge App");
+    app_ctx_builder.setResDir("../../data");
+    app_ctx_builder.setOutDir("./results");
+    int img_idx = 201;
+
+    AppContext* const app_ctx = app_ctx_builder.Build();
+
+    DepthImagePolicy dimg_policy(app_ctx);
+
+    ResMgr* resMgr = app_ctx->getResMgr();
+    k4aImageProducer frame_producer(resMgr, 1);
+    frame_producer.initialize();
+    DepthImagePolicy depth_policy(app_ctx);
+    // depth_policy.intialize();
+    bool val = true;
+    while(val){
+        FrameElement* frame_element = frame_producer.pollCurrentFrame(100);
+        EXPECT_NE(frame_element, nullptr);
+        cv::imshow("depth Frame", frame_element->getDepthFrameData()->getNDepthImage());
+        cv::imshow("color frame", frame_element->getColorFrameElement()->clone());
+        depth_policy.setFrameData(frame_element);
+        depth_policy.executePolicy();
+        cv::waitKey(1);
+        delete frame_element;
+    }
+//    ContourAttributes* contour_attribtues = depth_policy.getContourAttributes();
+//
+//
+//    LineSegmentContourPolicy contour_policy(app_ctx);
+//    contour_policy.setContourData(contour_attribtues);
+//    contour_policy.executePolicy();
+}
+
 TEST (DISABLED_FilterConcaveEdges, ContourOperation) {
     /// Initialize Application context
     AppContextBuilder app_ctx_builder;
@@ -98,7 +136,7 @@ TEST (DISABLED_FilterConcaveEdges, ContourOperation) {
     app_ctx_builder.setWindowTitle("Edge App");
     app_ctx_builder.setResDir("../../data");
     app_ctx_builder.setOutDir("./results");
-    int img_idx = 12;
+    int img_idx = 50;
 
     AppContext* const app_ctx = app_ctx_builder.Build();
 

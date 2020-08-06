@@ -5,6 +5,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 3.11)
 # ========================================================
 OPTION(ENABLE_CUDA "Enable CUDA support" ON)
 OPTION(ENABLE_IMGUI "Enable Dear IMGUI support" ON)
+OPTION(ENABLE_k4a "Enable Azure Kinect" ON)
 OPTION(ENABLE_QT "Enable Qt UI" OFF)
 OPTION(ENABLE_OPENGL "Enable OpenGL support" ON)
 OPTION(ENABLE_OPENCV "Enable OpenCV support" ON)
@@ -18,6 +19,7 @@ OPTION(PACKAGE_RUNTIME "Build runtime files" OFF)
 # ========================================================
 #ADD_DEFINITIONS(-DWITH_KINECTV2)
 #ADD_DEFINITIONS(-DRESIZE_KINECTV2_FRAME)
+ADD_DEFINITIONS(-DWITH_AZURE_KINECT)
 #ADD_DEFINITIONS(-DOUTPUT_INTERNAL_STAGES)
 #ADD_DEFINITIONS(-DDEBUG_CNTR_PLCY_IMG_RESULTS)
 #ADD_DEFINITIONS(-DDEBUG_DEPTH_PLCY_IMG_RESULTS)
@@ -29,6 +31,9 @@ IF(-DWITH_KINECTV2)
   ELSE()
     ADD_DEFINITIONS(-DVIEWPORT_WIDTH=512 -DVIEWPORT_HEIGHT=424)
   ENDIF()
+ELSEIF(-WITH_AZURE_KINECT)
+  ADD_DEFINITIONS(-DDEPTH_IMAGE_WIDTH=640 -DDEPTH_IMAGE_HEIGHT=576)
+  ADD_DEFINITIONS(-DVIEWPORT_WIDTH=640 -DVIEWPORT_HEIGHT=576) # Deprecate
 ELSE()
   ADD_DEFINITIONS(-DVIEWPORT_WIDTH=640 -DVIEWPORT_HEIGHT=480 -DRESIZE_KINECTV2_FRAME)
 ENDIF(-DWITH_KINECTV2)
@@ -84,6 +89,7 @@ SET(project_edge_SOURCE
         filter/gl_edge_disc_filter.cpp
         filter/gl_depth_img_filter.cpp
         filter/contour_processor.cpp
+        filter/k4a_bridge_producer.cpp
 
         component/contour_policy.cpp
         component/depth_img_policy.cpp
@@ -152,7 +158,7 @@ INCLUDE_DIRECTORIES(
 # = Cuda Support
 # ========================================================
 IF(ENABLE_CUDA)
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -g -G")
+#  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -g -G")
   find_package(CUDA)
 
   find_library(CUDART_LIBRARY cudart ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
@@ -193,6 +199,21 @@ IF(ENABLE_IMGUI)
           "${project_edge_VENDOR_DIR}/imgui/examples/imgui_impl_glfw.cpp")
   LIST(APPEND project_edge_src ${imgui_src})
   MESSAGE(STATUS "Including Dear imgui ${project_edge_src}")
+ENDIF()
+
+# ========================================================
+# = Azure Kinect SDK
+# ========================================================
+IF(ENABLE_k4a)
+  FIND_PACKAGE(k4a REQUIRED)
+  IF(NOT ${k4a_FOUND})
+    MESSAGE(ERROR "Faield to locate k4a package.")
+  ENDIF()
+  MESSAGE(STATUS "Using Azure kinect SDK: ${k4a_LIBS}")
+  INCLUDE_DIRECTORIES(${k4a_INCLUDE_DIRS})
+  LIST(APPEND project_edge_LIBRARIES
+          ${k4a_LIBS}
+          "/usr/local/lib/libk4a.so")
 ENDIF()
 
 # ========================================================
