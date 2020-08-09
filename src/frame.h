@@ -35,12 +35,14 @@ public:
      */
     DepthFrameElement(int width, int height, int channel_size,
             const float* data,
-            const float* ndata = nullptr):
+            const float* ndata = nullptr,
+            const unsigned char* rdata = nullptr):
             width_(width),
             height_(height),
             bits_per_channel_(channel_size),
             data_(data),
-            ndata_(ndata)
+            ndata_(ndata),
+            rdata_(rdata)
             {}
 
     /**
@@ -52,7 +54,8 @@ public:
             height_(cpy.height_),
             bits_per_channel_(cpy.bits_per_channel_),
             data_(cpy.data_),
-            ndata_(cpy.ndata_)
+            ndata_(cpy.ndata_),
+            rdata_(cpy.rdata_)
             {}
     /**
      * Default Constructor
@@ -62,11 +65,13 @@ public:
             height_(0),
             bits_per_channel_(0),
             data_(nullptr),
-            ndata_(nullptr){}
+            ndata_(nullptr),
+            rdata_(nullptr){}
 
     ~DepthFrameElement(){
         free((void *) data_);
         free((void *) ndata_);
+        free((void *) rdata_);
     }
 
     float const* const getData(){
@@ -93,6 +98,15 @@ public:
      */
     cv::Mat getNDepthImage(){
         cv::Mat mat(this->height_, this->width_, CV_32F, (char* const)this->ndata_);
+        return mat;
+    }
+
+    /**
+    * Returns cv::mat object of raw depth data
+    * @return
+    */
+    cv::Mat getRawDepthImage(){
+        cv::Mat mat(this->height_, this->width_, CV_16U, (char* const)this->rdata_);
         return mat;
     }
 
@@ -145,6 +159,7 @@ public:
 
 private:
     /// Private Fields
+    unsigned char const* const rdata_; // raw depth data
     float const* const data_; // Depth Data element
     float const* const ndata_; // Normal Depth data element
     int width_; // Frame width

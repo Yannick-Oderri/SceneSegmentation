@@ -9,7 +9,7 @@
 #include <thread>
 
 __global__
-void sobel_shared(cudaTextureObject_t src_img, cudaTextureObject_t preservation_map, Npp32f* x_grad, Npp32f* y_grad, Npp32s shared_pitch){
+void sobel_shared(cudaTextureObject_t src_img, cudaTextureObject_t preservation_map, Npp32f* x_grad, Npp32f* y_grad, Npp32f* mag, Npp32s shared_pitch){
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
     Npp32f *y_row =
@@ -18,8 +18,11 @@ void sobel_shared(cudaTextureObject_t src_img, cudaTextureObject_t preservation_
     Npp32f *x_row =
             (float *)(((char*)x_grad)+(y*shared_pitch));
 
+    Npp32f *mag_row =
+            (float *)(((char*)mag)+(y*shared_pitch));
+
     //Npp32f y_kern[] = { -1, -2, -1, 0, 0, 0, 1, 2, 1};
-    Npp32f y_kern[] = { 1, 0, -1, 2, 0, -2, 1, 0, -1};
+    Npp32f y_kern[] = { -1, 0, 1, -2, 0, 2, -1, 0, 1};
     Npp32f y_conv_val = 0;
     // Perform gradient in y direction
     for(int u = 0; u<3; u++){
@@ -29,24 +32,24 @@ void sobel_shared(cudaTextureObject_t src_img, cudaTextureObject_t preservation_
         while(v < 3){
             float val = tex2D<float>(src_img, x+u-1, y+v+offset);
             Npp8u preservation_val = tex2D<Npp8u>(preservation_map, x+u-1, y+v+offset);
-            if(preservation_val != 0){
-                if(v == 1){
-//                    float val1 = tex2D<float>(src_img, x+u-1, y+v+offset)*y_kern[3];
-//                    float val2 = tex2D<float>(src_img, x+u+1, y+v+offset)*y_kern[5];
-//                    y_conv_val = val1 + val2;
-                    u = 4;// If preserve center, preserve entire pixel
-                    sub_total = 0;
-                    y_conv_val = 0;
-                    v = 4;
-                    break;
-                }else if(v == 2){
-                    offset += -1; // If preserve bottom offset upwards
-                }else{
-                    offset += 1;  // If preserve top offset downwards
-                }
-                v = 0;
-                sub_total = 0;
-            }
+//            if(preservation_val != 0){
+//                if(v == 1){
+////                    float val1 = tex2D<float>(src_img, x+u-1, y+v+offset)*y_kern[3];
+////                    float val2 = tex2D<float>(src_img, x+u+1, y+v+offset)*y_kern[5];
+////                    y_conv_val = val1 + val2;
+//                    u = 4;// If preserve center, preserve entire pixel
+//                    sub_total = 0;
+//                    y_conv_val = 0;
+//                    v = 4;
+//                    break;
+//                }else if(v == 2){
+//                    offset += -1; // If preserve bottom offset upwards
+//                }else{
+//                    offset += 1;  // If preserve top offset downwards
+//                }
+//                v = 0;
+//                sub_total = 0;
+//            }
             val = val * y_kern[u * 3 + v];
             sub_total += val;
             v += 1;
@@ -65,24 +68,24 @@ void sobel_shared(cudaTextureObject_t src_img, cudaTextureObject_t preservation_
         while(u < 3){
             float val = tex2D<float>(src_img, x+u+offset, y+v-1);
             Npp8u preservation_val = tex2D<Npp8u>(preservation_map, x+u+offset, y+v-1);
-            if(preservation_val != 0){
-                if(u == 1){
-//                    float val1 = tex2D<float>(src_img, x+u+offset, y+v-1)*x_kern[3];
-//                    float val2 = tex2D<float>(src_img, x+u+offset, y+v+1)*x_kern[5];
-//                    x_conv_val = val1 + val2;
-                    v = 4;// If preserve center, preserve entire pixel
-                    x_conv_val = 0;
-                    sub_total = 0;
-                    u = 4;
-                    break;
-                }else if(u == 2){
-                    offset += -1; // If preserve bottom offset upwards
-                }else{
-                    offset += 1;  // If preserve top offset downwards
-                }
-                u = 0;
-                sub_total = 0;
-            }
+//            if(preservation_val != 0){
+//                if(u == 1){
+////                    float val1 = tex2D<float>(src_img, x+u+offset, y+v-1)*x_kern[3];
+////                    float val2 = tex2D<float>(src_img, x+u+offset, y+v+1)*x_kern[5];
+////                    x_conv_val = val1 + val2;
+//                    v = 4;// If preserve center, preserve entire pixel
+//                    x_conv_val = 0;
+//                    sub_total = 0;
+//                    u = 4;
+//                    break;
+//                }else if(u == 2){
+//                    offset += -1; // If preserve bottom offset upwards
+//                }else{
+//                    offset += 1;  // If preserve top offset downwards
+//                }
+//                u = 0;
+//                sub_total = 0;
+//            }
             val = val * x_kern[v * 3 + u];
             sub_total += val;
             u += 1;
@@ -92,6 +95,85 @@ void sobel_shared(cudaTextureObject_t src_img, cudaTextureObject_t preservation_
 
     y_row[x] = y_conv_val;
     x_row[x] = x_conv_val;
+    mag_row[x] = sqrt(pow(x_conv_val, 2)+pow(y_conv_val, 2));
+}
+
+
+__global__
+void sobel_1X(cudaTextureObject_t src_img, Npp32f* x_grad, Npp32f* y_grad, Npp32f* mag, Npp32s shared_pitch){
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    Npp32f *y_row =
+            (float *)(((char*)y_grad)+(y*shared_pitch));
+
+    Npp32f *x_row =
+            (float *)(((char*)x_grad)+(y*shared_pitch));
+
+    Npp32f *mag_row =
+            (float *)(((char*)mag)+(y*shared_pitch));
+    float y_conv_val = 0;
+    float x_conv_val = 0;
+
+    float x1 = tex2D<float>(src_img, x, y);
+    float x2 = tex2D<float>(src_img, x+1, y);
+
+    x_conv_val = x1 - x2;
+
+    float y1 = tex2D<float>(src_img, x, y);
+    float y2 = tex2D<float>(src_img, x, y+1);
+
+    y_conv_val = y1 - y2;
+
+    y_row[x] = y_conv_val;
+    x_row[x] = x_conv_val;
+    mag_row[x] = sqrt(pow(x_conv_val, 2)+pow(y_conv_val, 2));
+}
+
+
+__global__
+void discardGradientEdge(cudaTextureObject_t edges, cudaTextureObject_t mag, cudaTextureObject_t depth, Npp8u* dst_img, Npp32s dst_step){
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    Npp8u *row =
+            (Npp8u*)(((Npp8u*)dst_img)+(y*dst_step));
+
+    Npp8u val = tex2D<Npp8u>(edges, x, y);
+    Npp32f g = tex2D<float>(mag, x, y);
+    float grad_count = 0;
+    float grad_mag = 0;
+    float region_mag = 0;
+    float region_count = 0;
+    if(val != 0 && g < 40) {// return on non edge pixel
+
+        int wnd_size = 13;
+        int wnd_range = wnd_size / 2;
+
+        for (int i = 0; i < wnd_size * wnd_size; i++) {
+            int u = i / wnd_size;
+            int v = i % wnd_size;
+            Npp32f pixel = tex2D<float>(mag, (int) (x + v - wnd_range), (int) (y + u - wnd_range));
+            Npp32f dval = tex2D<float>(depth, (int) (x + v - wnd_range), (int) (y + u - wnd_range));
+            if (pixel > 30) { // avoid invalid regions
+                grad_mag += dval;
+                grad_count += 1;
+            } else if (dval != 0) {
+                region_mag += dval;
+                region_count += 1;
+            }
+        }
+    }else if(val != 0 && g > 55){
+        row[x] = 255;
+        return;
+    }else{
+        row[x] = 0;
+        return;
+    }
+
+    grad_mag /= grad_count;
+    region_mag /= region_count;
+    int dif = abs(static_cast<int>(grad_mag - region_mag));
+    row[x] =  ((dif < 15)) ? 255 : 0; // set foreground pixel
+
 }
 
 
@@ -652,17 +734,17 @@ void normal_vector_seperation(cudaTextureObject_t normal_img, NppiSize src_size,
         tres2.z /= mag_2;
 
 
-        val1 = pow(tres1.x*vec.x + tres1.y*vec.y + tres1.z * vec.z, 3);
-        val2 = pow(tres2.x*vec.x + tres2.y*vec.y + tres2.z * vec.z, 3);
+        val1 = pow(tres1.x*vec.x + tres1.y*vec.y + tres1.z * vec.z, 2);
+        val2 = pow(tres2.x*vec.x + tres2.y*vec.y + tres2.z * vec.z, 2);
         mean = (val1+val2)/2;
         hori_val += (1-mean)*sv[v]*500;
     }
 
 
-    if(abs(hori_val/3) > 11.0)
+    if(abs(hori_val/5.0) > 14.0)
         xrow[x] = 100;
 
-    if(abs(vert_val / 5.0) > 11.0)
+    if(abs(vert_val /5.0) > 14.0)
         yrow[x] = 100;
 
 }
@@ -742,7 +824,17 @@ void convert_32f_8u_scaled(cudaTextureObject_t tex_obj, cudaTextureObject_t tex_
         final_val |= (cval << (8*i));
     }
     row[x/4] = final_val;
+}
 
+__global__
+void convert_32f_8u_threshold(cudaTextureObject_t tex_obj, Npp8u* dst_img, int dst_step, Npp32f alpha){
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+
+    Npp8u *row =
+            (Npp8u *)(((Npp8u*)dst_img)+(y*dst_step));
+    Npp32f val = tex2D<Npp32f>(tex_obj, x, y);
+    row[x] = val >= alpha ? 255 : 0;
 }
 
 __global__
@@ -762,16 +854,28 @@ void convert_8u_32f_scaled(cudaTextureObject_t tex_obj, Npp32f* dst_img, int dst
 }
 
 __global__
+void threshold_8u(cudaTextureObject_t tex1, int thresh, Npp8u* dst_img, int dst_step){
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+
+    Npp8u val1 = tex2D<Npp8u>(tex1, x, y);
+
+    Npp8u *row =
+            (Npp8u *)(((Npp8u*)dst_img)+(y*dst_step));
+    row[x] = (val1 >= thresh) ? 255 : 0;
+}
+
+__global__
 void or_8u(cudaTextureObject_t tex1, cudaTextureObject_t tex2, Npp8u* dst_img, int dst_step){
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
 
-    Npp8u *row =
-            (Npp8u *)(((Npp8u*)dst_img)+(y*dst_step));
     Npp8u val1 = tex2D<Npp8u>(tex1, x, y);
     Npp8u  val2 = tex2D<Npp8u>(tex2, x, y);
 
-    row[x] = (val1 | val2);
+    Npp8u *row =
+            (Npp8u *)(((Npp8u*)dst_img)+(y*dst_step));
+    row[x] = (val1 | val2) != 0;
 }
 
 __global__
@@ -904,6 +1008,38 @@ void applyLUT_inv(cudaTextureObject_t src_img, Npp8u* dst_img, int dst_step, int
         k<<=3;
     }
     row[x] = DEV_LUT[L + lut_offset];
+}
+__host__
+void bwmorph(CurveDiscTextureUnits& tunits, TexID_U8 src_id, TexID_U8 dst_id, unsigned char* lut, int n) {
+    cudaMemcpyToSymbol(DEV_LUT, lut, sizeof(unsigned char)*512);
+
+    NppiSize target_thread = {32, 32};
+    int block_width = tunits.getWidth() / target_thread.width;
+    int block_height = tunits.getHeight() / target_thread.height;
+    int block_size = block_width * block_height;
+    dim3 blocks(block_width, block_height);
+    dim3 threads(target_thread.width, target_thread.height);
+
+    TexID_U8 tsid = src_id;
+    TexID_U8 tmid1 = TBUFFER1_U8;
+    cudaMemcpy(tunits.getBuffer(tmid1),
+               tunits.getBuffer(src_id),
+               tunits.u8Pitch()*tunits.getHeight(),
+               cudaMemcpyDeviceToDevice);
+    TexID_U8 tmid2 = TBUFFER2_U8;
+    for(int i =0; i < n; i++) {
+        applyLUT<<<blocks, threads>>>(
+                tunits.getTexture(tmid1),
+                tunits.getBuffer(tmid2), tunits.u8Pitch(), 0);
+        TexID_U8 t = tmid1;
+        tmid1 = tmid2;
+        tmid2 = t;
+    }
+
+    cudaMemcpy(tunits.getBuffer(dst_id),
+               tunits.getBuffer(tmid2),
+               tunits.u8Pitch()*tunits.getHeight(),
+               cudaMemcpyDeviceToDevice);
 }
 
 
@@ -1090,12 +1226,12 @@ void majority(CurveDiscTextureUnits& tunits, TexID_U8 src_id, TexID_U8 dst_id, i
     dim3 threads(target_thread.width, target_thread.height);
 
     TexID_U8 tsid = src_id;
-    TexID_U8 tmid1 = SBUFFER2_U8;
+    TexID_U8 tmid1 = TBUFFER1_U8;
     cudaMemcpy(tunits.getBuffer(tmid1),
                tunits.getBuffer(src_id),
                tunits.u8Pitch()*tunits.getHeight(),
                cudaMemcpyDeviceToDevice);
-    TexID_U8 tmid2 = SBUFFER3_U8;
+    TexID_U8 tmid2 = TBUFFER2_U8;
     for(int i =0; i < n; i++) {
         applyLUT<<<blocks, threads>>>(
                 tunits.getTexture(tmid1),
@@ -1116,10 +1252,11 @@ void prune(CurveDiscTextureUnits& tunits, TexID_U8 src_id, TexID_U8 dst_id, int 
     cudaMemcpyToSymbol(DEV_LUT, LUT_spur_matlab, sizeof(unsigned char)*512);
     cudaMemset(tunits.getBuffer(SBUFFER4_U8), 0, tunits.u8Pitch()*tunits.getHeight());
     cudaMemset(tunits.getBuffer(SBUFFER5_U8), 0, tunits.u8Pitch()*tunits.getHeight());
-    cudaMemcpy(tunits.getBuffer(dst_id),
-               tunits.getBuffer(src_id),
-               tunits.u8Pitch()*tunits.getHeight(),
-               cudaMemcpyDeviceToDevice);
+    if(src_id != dst_id)
+        cudaMemcpy(tunits.getBuffer(dst_id),
+                   tunits.getBuffer(src_id),
+                   tunits.u8Pitch()*tunits.getHeight(),
+                   cudaMemcpyDeviceToDevice);
 //    cudaMemcpy(tunits.getBuffer(SBUFFER5_U8),
 //            tunits.getBuffer(src_id),
 //            tunits.u8Pitch()*tunits.getHeight(),
@@ -1227,20 +1364,33 @@ void thin(CurveDiscTextureUnits& tunits, TexID_U8 src_id, TexID_U8 dst_id, int n
     dim3 blocks(block_width, block_height);
     dim3 threads(target_thread.width, target_thread.height);
 
+    TexID_U8 tmid1 = TBUFFER1_U8;
+    cudaMemcpy(tunits.getBuffer(tmid1),
+               tunits.getBuffer(src_id),
+               tunits.u8Pitch()*tunits.getHeight(),
+               cudaMemcpyDeviceToDevice);
+    TexID_U8 tmid2 = TBUFFER2_U8;
+
+
     applyLUT<<<blocks, threads>>>(
-            tunits.getTexture(src_id),
-            tunits.getBuffer(dst_id), tunits.u8Pitch(), 0);
+            tunits.getTexture(tmid1),
+            tunits.getBuffer(tmid2), tunits.u8Pitch(), 0);
 
     while(--n) {
         // Perform Thin
         applyLUT<<<blocks, threads>>>(
-                tunits.getTexture(dst_id),
-                tunits.getBuffer(SBUFFER2_U8), tunits.u8Pitch(), 512);
+                tunits.getTexture(tmid2),
+                tunits.getBuffer(tmid1), tunits.u8Pitch(), 512);
 
         applyLUT<<<blocks, threads>>>(
-                tunits.getTexture(SBUFFER2_U8),
-                tunits.getBuffer(dst_id), tunits.u8Pitch(), 0);
+                tunits.getTexture(tmid1),
+                tunits.getBuffer(tmid2), tunits.u8Pitch(), 0);
     }
+
+    cudaMemcpy(tunits.getBuffer(dst_id),
+               tunits.getBuffer(tmid2),
+               tunits.u8Pitch()*tunits.getHeight(),
+               cudaMemcpyDeviceToDevice);
 
 }
 
@@ -1362,7 +1512,7 @@ cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map, CurveDiscTextureUnits& tex_
     // Average depth frame
     //tex_units.outputTexture(SBUFFER2_F32, "depth");
     averageDepthFrame(tex_units, SBUFFER2_F32, SBUFFER1_F32);
-    //tex_units.outputTexture(SBUFFER1_F32, "averaged depth");
+//    tex_units.outputTexture(SBUFFER1_F32, "avg_depth", true);
     //cv::waitKey(0);
 
     // Convert depth image to unsigned 8 to perform canny// Perform canny on depth image
@@ -1407,10 +1557,10 @@ cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map, CurveDiscTextureUnits& tex_
     wiener_opr(tex_units, SBUFFER1_F32, DEPTH_F32, 5); // filter valid regions
     wiener_opr(tex_units, SBUFFER1_F32, DEPTH_F32, -1); // perform global region filtering
 
-//    tex_units.outputTexture(DEPTH_F32, "Depth 2 Frame");
-#ifdef DEBUG_CD_OPR_OUTPUT
     tex_units.outputTexture(DEPTH_F32, "fdepth");
-    tex_units.outputTexture(DD_U8, "DD");
+#ifdef DEBUG_CD_OPR_OUTPUT
+    tex_units.outputTexture(DEPTH_F32, "fdepth", true);
+    tex_units.outputTexture(DD_F32, "DD", true);
 #endif
 
     // Perform Gradient
@@ -1419,7 +1569,14 @@ cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map, CurveDiscTextureUnits& tex_
             tex_units.getTexture(DD_U8),
             tex_units.getBuffer(SBUFFER1_F32),
             tex_units.getBuffer(SBUFFER2_F32),
+            tex_units.getBuffer(MAGGRAD_F32),
             tex_units.f32Pitch());
+//    sobel_1X<<<blocks, threads>>>(
+//            tex_units.getTexture(DEPTH_F32),
+//            tex_units.getBuffer(SBUFFER1_F32),
+//            tex_units.getBuffer(SBUFFER2_F32),
+//            tex_units.getBuffer(MAGGRAD_F32),
+//            tex_units.f32Pitch());
     // Filter X Gradient
     wiener_opr(tex_units, SBUFFER1_F32, XGRAD_F32, 5);
     // Filter Y Gradient ygrad
@@ -1430,7 +1587,7 @@ cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map, CurveDiscTextureUnits& tex_
             tex_units.getTexture(DEPTH_F32), src_size,
             tex_units.getTexture(XGRAD_F32), tex_units.getTexture(YGRAD_F32),
             tex_units.getBuffer(SBUFFER1_F32C4), tex_units.f32c4Pitch());
-    wiener_opr(tex_units, SBUFFER1_F32C4, NORMAL_F32C4, 21);
+    wiener_opr(tex_units, SBUFFER1_F32C4, NORMAL_F32C4, 15);
     // Get contours minimums regions using normals (this is aching to regions with smallest magnitudes)
     normal_vector_seperation<<<blocks, threads>>>(
             tex_units.getTexture(NORMAL_F32C4), src_size,
@@ -1449,7 +1606,6 @@ cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map, CurveDiscTextureUnits& tex_
             tex_units.getTexture(SBUFFER1_U8),
             tex_units.getTexture(SBUFFER2_U8),
             tex_units.getBuffer(NORMEDGE_U8), tex_units.u8Pitch());
-    //thin(tex_units, SBUFFER3_U8, NORMEDGE_U8, 10);
 //    tex_units.outputTexture(NORMEDGE_U8, "norm t");
     checkCudaErrors(cudaDeviceSynchronize());
 
@@ -1458,22 +1614,22 @@ cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map, CurveDiscTextureUnits& tex_
             tex_units.getBuffer(XGRAD_F32),
             tex_units.getBuffer(YGRAD_F32), src_size,
             tex_units.getBuffer(SBUFFER1_F32),
-            tex_units.getBuffer(SBUFFER2_F32), pitch, 0.8);
+            tex_units.getBuffer(SBUFFER2_F32), pitch, 2);
 
     // Perform Filtering (lrgrad -> sbuffer5 | udgrad -> sbuffer6)
-    wiener_opr(tex_units, SBUFFER1_F32, LRDIR_F32, 3);
-    wiener_opr(tex_units, SBUFFER2_F32, UDDIR_F32, 3);
+    wiener_opr(tex_units, SBUFFER1_F32, LRDIR_F32, 5);
+    wiener_opr(tex_units, SBUFFER2_F32, UDDIR_F32, 5);
 
 
 #ifdef DEBUG_CD_OPR_OUTPUT
     cv::FileStorage storage;
-    tex_units.outputTexture(XGRAD_F32, "xgrad");
-    tex_units.outputTexture(YGRAD_F32, "ygrad");
-//    tex_units.outputTexture(UDDIR_F32, "uddir");
-//    tex_units.outputTexture(LRDIR_F32, "lrdir");
+    tex_units.outputTexture(XGRAD_F32, "xgrad", true);
+    tex_units.outputTexture(YGRAD_F32, "ygrad", true);
+    tex_units.outputTexture(UDDIR_F32, "uddir");
+    tex_units.outputTexture(LRDIR_F32, "lrdir");
     tex_units.outputTexture(SBUFFER1_F32C4, "rnormals");
     tex_units.outputTexture(NORMAL_F32C4, "normals");
-    tex_units.outputTexture(NORMEDGE_U8, "normedge");
+//    tex_units.outputTexture(NORMEDGE_U8, "normedge");
     tex_units.outputTexture(HNORMEDGE_F32, "hnormedge");
     tex_units.outputTexture(VNORMEDGE_F32, "vnormedge");
 #endif
@@ -1482,8 +1638,8 @@ cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map, CurveDiscTextureUnits& tex_
     float yrange_max, yrange_min;
     determineTextureRange(tex_units.getTexture(UDDIR_F32), src_size, yrange_max, yrange_min);
 
-    float highThresh = 0.4;
-    float lowThresh = 0.98 * highThresh;
+    float highThresh = 0.40;
+    float lowThresh = 0.80 * highThresh;
 
 
     convert_32f_8u_scaled<<<blocks, u8_threads>>>(
@@ -1503,7 +1659,7 @@ cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map, CurveDiscTextureUnits& tex_
             NppiMaskSize::NPP_MASK_SIZE_3_X_3,
             lowThresh* 255,
             highThresh * 255,
-            NppiNorm::nppiNormL1,
+            NppiNorm::nppiNormL2,
             NppiBorderType::NPP_BORDER_REPLICATE,
             canny_buffer
             );
@@ -1522,29 +1678,96 @@ cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map, CurveDiscTextureUnits& tex_
             {width, height},
             NppiDifferentialKernel::NPP_FILTER_SOBEL,
             NppiMaskSize::NPP_MASK_SIZE_3_X_3,
-            lowThresh * 255,
-            highThresh * 255,
+            0.9 * 0.5 * 255,
+            0.5 * 255,
             NppiNorm::nppiNormL2,
             NppiBorderType::NPP_BORDER_REPLICATE,
             canny_buffer
     );
 
-//    tex_units.outputTexture(LREDGE_U8, "LR EDGE");
+
+
+//    tex_units.outputTexture(LREDGE_U8, "LR_EDGE");
+//    tex_units.outputTexture(MAGGRAD_F32, "magnitude", true);
 //    tex_units.outputTexture(UDEDGE_U8, "UD EDGE");
+//    cv::waitKey(0);
+
+
+//    tex_units.zero(SBUFFER1_U8);
+//    discardGradientEdge<<<blocks, threads>>>(
+//            tex_units.getTexture(UDEDGE_U8),
+//            tex_units.getTexture(MAGGRAD_F32),
+//            tex_units.getTexture(DEPTH_F32),
+//            tex_units.getBuffer(SBUFFER1_U8),
+//            tex_units.u8Pitch()
+//            );
+//    or_8u<<<blocks, threads>>>(
+//            tex_units.getTexture(DD_U8),
+//            tex_units.getTexture(SBUFFER1_U8),
+//            tex_units.getBuffer(UDEDGE_U8), tex_units.u8Pitch());
+//    tex_units.outputTexture(UDEDGE_U8, "d",);
+//
+//    tex_units.zero(SBUFFER1_U8);
+//    discardGradientEdge<<<blocks, threads>>>(
+//            tex_units.getTexture(LREDGE_U8),
+//            tex_units.getTexture(MAGGRAD_F32),
+//            tex_units.getTexture(DEPTH_F32),
+//            tex_units.getBuffer(SBUFFER1_U8),
+//            tex_units.u8Pitch()
+//    );
+//    or_8u<<<blocks, threads>>>(
+//            tex_units.getTexture(DD_U8),
+//            tex_units.getTexture(SBUFFER1_U8),
+//            tex_units.getBuffer(LREDGE_U8), tex_units.u8Pitch());
+//    tex_units.outputTexture(LREDGE_U8, "new");
+
+    convert_32f_8u_threshold<<<blocks, threads>>>(
+            tex_units.getTexture(MAGGRAD_F32),
+            tex_units.getBuffer(SBUFFER1_U8),
+            tex_units.u8Pitch(),
+            75
+            );
+//    majority(tex_units, SBUFFER1_U8, SBUFFER1_U8, 1);
+//    fatten(tex_units, SBUFFER1_U8, SBUFFER1_U8, 2);
+//    tex_units.outputTexture(SBUFFER1_U8, "magnitude");
 
     or_8u<<<blocks, threads>>>(
             tex_units.getTexture(LREDGE_U8),
             tex_units.getTexture(UDEDGE_U8),
             tex_units.getBuffer(SBUFFER7_U8),
             tex_units.u8Pitch());
+    or_8u<<<blocks, threads>>>(
+            tex_units.getTexture(SBUFFER7_U8),
+            tex_units.getTexture(DD_U8),
+            tex_units.getBuffer(SBUFFER7_U8),
+            tex_units.u8Pitch());
+    prune(tex_units, SBUFFER7_U8, SBUFFER7_U8, 6);
     despeckle(tex_units, SBUFFER7_U8, SBUFFER7_U8, 2);
-    fatten(tex_units, SBUFFER7_U8, SBUFFER7_U8, 1);
+//    tex_units.outputTexture(SBUFFER7_U8, "ddnlredge");
+//    fatten(tex_units, SBUFFER7_U8, SBUFFER7_U8, 2);
+    threshold_8u<<<blocks, threads>>>(
+            tex_units.getTexture(SBUFFER7_U8), 1,
+            tex_units.getBuffer(SBUFFER7_U8), tex_units.u8Pitch());
 
-    prune(tex_units, NORMEDGE_U8, SBUFFER9_U8, 3);
+    or_8u<<<blocks, threads>>>(tex_units.getTexture(SBUFFER7_U8),
+                               tex_units.getTexture(SBUFFER1_U8),
+                               tex_units.getBuffer(SBUFFER6_U8), tex_units.u8Pitch());
+    majority(tex_units, SBUFFER6_U8, SBUFFER6_U8, 1);
+    fatten(tex_units, SBUFFER6_U8, SBUFFER6_U8, 2);
+//    tex_units.outputTexture(SBUFFER6_U8, "magnedge");
+    majority(tex_units, SBUFFER6_U8, SBUFFER6_U8, 2);
+
+    prune(tex_units, NORMEDGE_U8, SBUFFER9_U8, 2);
     thin(tex_units, SBUFFER9_U8, SBUFFER9_U8, 2);
 //    tex_units.outputTexture(SBUFFER9_U8, "edges1");
 
-    or_8u<<<blocks, threads>>>(tex_units.getTexture(SBUFFER7_U8),
+    threshold_8u<<<blocks, threads>>>(
+            tex_units.getTexture(SBUFFER6_U8), 1,
+            tex_units.getBuffer(SBUFFER6_U8), tex_units.u8Pitch());
+    threshold_8u<<<blocks, threads>>>(
+            tex_units.getTexture(SBUFFER9_U8), 1,
+            tex_units.getBuffer(SBUFFER9_U8), tex_units.u8Pitch());
+    or_8u<<<blocks, threads>>>(tex_units.getTexture(SBUFFER6_U8),
             tex_units.getTexture(SBUFFER9_U8),
             tex_units.getBuffer(SBUFFER8_U8), tex_units.u8Pitch());
 //    tex_units.outputTexture(SBUFFER8_U8, "edgesf");
@@ -1552,7 +1775,7 @@ cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map, CurveDiscTextureUnits& tex_
     majority(tex_units, SBUFFER8_U8, SBUFFER9_U8, 10);
 //    tex_units.outputTexture(SBUFFER8_U8, "majority");
 
-    thin(tex_units, SBUFFER9_U8, SBUFFER8_U8, 10);
+    thin(tex_units, SBUFFER9_U8, SBUFFER8_U8, 12);
 //    tex_units.outputTexture(SBUFFER8_U8, "thinned");
     prune(tex_units,SBUFFER8_U8, SBUFFER7_U8, 12);
     despeckle(tex_units, SBUFFER7_U8, SBUFFER8_U8, 1);
@@ -1562,14 +1785,15 @@ cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map, CurveDiscTextureUnits& tex_
 //    cv::waitKey(0);
 
 #ifdef DEBUG_CD_OPR_OUTPUT
-    tex_units.outputTexture(LREDGE_U8, "lredge");
-    tex_units.outputTexture(UDEDGE_U8, "udedge");
+    tex_units.outputTexture(LREDGE_U8, "lredge", true);
+    tex_units.outputTexture(UDEDGE_U8, "udedge", true);
     cv::waitKey(0);
 #endif
 
     cv::Mat tres = tex_units.toCVMat(SBUFFER8_U8);
-    cv::imshow("results", tres);
-    //cv::waitKey(0);
+//    cv::imshow("frame contour", tres);
+//    cv::waitKey(0);
+    cudaFree(canny_buffer);
     return tres;
 
     /**
@@ -1767,9 +1991,9 @@ cv::Mat cleanDiscontinuityOpr(cv::Mat& disc_img){
     return img;
 }
 
+CurveDiscTextureUnits* tex_units;
 extern "C"
 cv::Mat cuCurveDiscOperation(cv::Mat& depth_map){
-    static CurveDiscTextureUnits* tex_units;
     if(tex_units == nullptr){
         tex_units = new CurveDiscTextureUnits(depth_map.cols, depth_map.rows);
     }

@@ -4,11 +4,13 @@
 depth = imread('/home/ynki9/Dev/ucf_research/project_edge/data/images/depth/test65.png');
 
 %% Load yml
-data = fopen('spurs.yml');
+width = 640;
+height = 576;
+data = fopen('DD.yml');
 f = textscan(data, '%s', 'Delimiter', ',');
 v = str2double(f{:});
 gv = reshape(v, width, height).';
-spurs= gv;
+dd = gv;
 
 %% Load yml Color Image
 data = fopen('normals.yml');
@@ -35,14 +37,13 @@ lrdir= gv;
 
 %% Generate Gradient Map
 width = 640;
-height = 576
+height = 576;
 
 data = fopen('ygrad.yml');
 f = textscan(data, '%s', 'Delimiter', ',');
 v = str2double(f{:});
 gv = reshape(v, width, height).';
 ygrad = gv;
-
 
 data = fopen('xgrad.yml');
 f = textscan(data, '%s', 'Delimiter', ',');
@@ -59,4 +60,5 @@ ux = repelem(1:width, height);
 ttx =reshape(ux, [height width]);
 ux = reshape(ttx, [1 width*height]);
 figure;
-q = quiver(ux, uy*-1, txgrad, tygrad);
+quiver(ux, uy*-1, txgrad, tygrad, 30);
+matg = s

@@ -8,9 +8,9 @@
 #define MAX_FRAME_TRACKING 20
 #define AVG_DEPTH_FRAMES_LEN 10
 
-#define F32_TEXTURE_UNIT_COUNT 16
+#define F32_TEXTURE_UNIT_COUNT 24
 #define F32C4_TEXTURE_UNIT_COUNT 5
-#define  U8_TEXTURE_UNIT_COUNT 16
+#define  U8_TEXTURE_UNIT_COUNT 24
 #define  U8C4_TEXTURE_UNIT_COUNT 2
 
 enum TexID_F32{
@@ -53,7 +53,11 @@ enum TexID_U8{
     SBUFFER6_U8,
     SBUFFER7_U8,
     SBUFFER8_U8,
-    SBUFFER9_U8
+    SBUFFER9_U8,
+    TBUFFER1_U8,
+    TBUFFER2_U8,
+    TBUFFER3_U8,
+    TBUFFER4_U8,
 };
 
 enum TexID_U8C4{
@@ -331,7 +335,7 @@ struct CurveDiscTextureUnits{
         }
 
         file_name = file_name == "" ? "output" : file_name;
-        cv::normalize(host_image, host_image, 0, 1, CV_MINMAX, CV_32FC4);
+        cv::normalize(host_image, host_image, 1, 0, CV_MINMAX, CV_32FC4);
         cv::imshow(file_name, host_image);
         free(host_buffer);
     }

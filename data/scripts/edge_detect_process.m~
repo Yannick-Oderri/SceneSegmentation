@@ -1,4 +1,4 @@
-% clear all;
+clear all;
 close all;
 
 imgnum = 201;
@@ -70,10 +70,10 @@ Idf = dst_img;
 [Gx, Gy] = imgradientxy(Idf);
 Gx = wiener2(Gx,[5 5]) ;
 Gy = wiener2(Gy,[5 5]) ;
-% figure('Name', 'Stage 2 X Gradient');
-% imshow(Gx, []);
-% figure('Name', 'Stage 2 Y Gradient');
-% imshow(Gy, []);
+figure('Name', 'Stage 2 X Gradient');
+imshow(Gx, []);
+figure('Name', 'Stage 2 Y Gradient');
+imshow(Gy, []);
 
 %%
 [Gmag, Gdir] = imgradient(Gx, Gy);
@@ -97,9 +97,9 @@ imshow(GdirLR, []);
 figure('Name', 'Stage 3 Y Grad mirror');
 imshow(GdirUD, []);
 
-%%
-[BW_GLR,~] = edge(GdirLR,'canny',0.25);
-[BW_GUD,~] = edge(GdirUD,'canny',0.25);
+
+[BW_GLR,~] = edge(GdirLR,'log',0.45);
+[BW_GUD,~] = edge(GdirUD,'log',0.45);
 BW30 = or(BW_GLR,BW_GUD) ;
 figure('Name', 'CD Results');
-imshow(BW30, []);
+imshow(BW30|dd, []);

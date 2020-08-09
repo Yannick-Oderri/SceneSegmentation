@@ -24,14 +24,48 @@ void k4aImageProducer::initialize() {
     if(!m_k4a_device_.get_capture(&m_k4a_capture_, std::chrono::milliseconds(1000))) {
         BOOST_LOG_TRIVIAL(error) << "[Streaming Service] Runtime error: k4a_device_get_capture() failed";
     }
+
+    // Setup device calibration
+    k4a_device_get_calibration(m_k4a_device_.handle(), m_k4a_config_.depth_mode,
+            m_k4a_config_.color_resolution, &m_k4a_calibration_);
+
+    // Setup Transform for color to depth
+    m_k4a_transform_ = k4a_transformation_create(&m_k4a_calibration_);
 }
 
 FrameElement* k4aImageProducer::pollCurrentFrame(int timeout){
     FrameElement* frame = nullptr;
     if(m_k4a_device_.get_capture(&m_k4a_capture_, std::chrono::milliseconds(timeout))) {
         const k4a::image k4a_depth_image = m_k4a_capture_.get_depth_image(); // Azure Kinect Depth Image
-        const k4a::image k4a_color_image = m_k4a_capture_.get_color_image(); // Azure Kinect Color Image
+        const k4a::image k4a_color_image_t = m_k4a_capture_.get_color_image(); // Azure Kinect Color Image
+
+        // Color Image Transformation
+        k4a_image_t transformed_color_image_h = NULL;
+        k4a_image_create(K4A_IMAGE_FORMAT_COLOR_BGRA32,
+                                                     k4a_depth_image.get_width_pixels(),
+                                                     k4a_depth_image.get_height_pixels(),
+                                                     k4a_depth_image.get_width_pixels() * 4 * (int)sizeof(uint8_t),
+                                                     &transformed_color_image_h);
+        k4a::image k4a_color_image(transformed_color_image_h);
+        if (K4A_RESULT_SUCCEEDED != k4a_transformation_color_image_to_depth_camera(m_k4a_transform_,
+                                                                                   k4a_depth_image.handle(),
+                                                                                   k4a_color_image_t.handle(),
+                                                                                   k4a_color_image.handle())){
+            printf("Failed ot compute tranformed image \n");
+            return nullptr;
+        }
+
         m_frame_count_ += 1;
+
+
+
+        // Convert color imag eto opencv Mat
+        unsigned char* color_buffer = (unsigned char *)(malloc(k4a_color_image.get_size()));
+        memcpy(color_buffer, k4a_color_image.get_buffer(), k4a_color_image.get_size());
+        cv::Mat color_img(
+                k4a_color_image.get_height_pixels(),
+                k4a_color_image.get_width_pixels(),
+                CV_8UC4, color_buffer, k4a_color_image.get_stride_bytes());
 
         // Convert depth image to opencv Mat
         unsigned char* depth_buffer = (unsigned char *)malloc(k4a_depth_image.get_size());
@@ -45,16 +79,9 @@ FrameElement* k4aImageProducer::pollCurrentFrame(int timeout){
 //        cv::imshow("depth image", t_depth_img);
 //        cv::waitKey(0);
 
-        // Convert color imag eto opencv Mat
-        unsigned char* color_buffer = (unsigned char *)(malloc(k4a_color_image.get_size()));
-        memcpy(color_buffer, k4a_color_image.get_buffer(), k4a_color_image.get_size());
-        cv::Mat color_img(
-                k4a_color_image.get_height_pixels(),
-                k4a_color_image.get_width_pixels(),
-                CV_8UC4, color_buffer, k4a_color_image.get_stride_bytes());
-
         // Normalize Depth Image ?? This could be done on GPU
         cv::Mat t_mask = (t_depth_img < 650) | (t_depth_img > 1700);
+        t_depth_img = t_depth_img.clone();
         t_depth_img.setTo(0, t_mask);
         //t_depth_img = processFrame(t_depth_img); // Averages frame
 
@@ -75,10 +102,13 @@ FrameElement* k4aImageProducer::pollCurrentFrame(int timeout){
                 k4a_depth_image.get_height_pixels(),
                 sizeof(float),
                 (float *) depth_buffer1,
-                (float *) ndepth_buffer);
+                (float *) ndepth_buffer,
+                (unsigned char*)depth_buffer);
 
         long timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(k4a_depth_image.get_system_timestamp()).count();
         frame = new FrameElement(m_frame_count_, color_img, depth_content, timestamp);
+
+        k4a_image_release(transformed_color_image_h);
 
     }
 

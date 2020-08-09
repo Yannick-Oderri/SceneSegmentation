@@ -35,6 +35,8 @@ private:
 
     k4a::device m_k4a_device_;
     k4a_device_configuration_t m_k4a_config_;
+    k4a_calibration_t  m_k4a_calibration_;
+    k4a_transformation_t m_k4a_transform_;
     bool m_end_stream_;
     const int m_frame_delay_;
     int m_frame_count_;

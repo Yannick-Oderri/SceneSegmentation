@@ -32,20 +32,21 @@ cv::Mat processContourFrames(cv::Mat new_frame, std::deque<cv::Mat>& frame_queue
     cv::Mat n_frame;
     new_frame.convertTo(n_frame, CV_16U);
     frame_queue.push_front(n_frame);
-    if(frame_queue.size() > 16){
+    if(frame_queue.size() > 20){
         frame_queue.pop_back();
     }
     const int k_size[] = {1, 2, 4, 6, 8, 10};
     cv::Mat t_frame1 = cv::Mat::zeros(new_frame.rows, new_frame.cols, n_frame.type());
     cv::Mat t_frame2 = cv::Mat::zeros(new_frame.rows, new_frame.cols, n_frame.type());
-
-    for(int i=0; i < frame_queue.size(); i++){
-        float k_size = pow((i+1)*0.15, 2)+1;
+    cv::Mat t;
+    for(int i=1; i <= frame_queue.size(); i++){
+        float k_size = pow(i*0.3, 2)+3;
         cv::Size ks((int)k_size, (int)k_size);
-        cv::blur(frame_queue[i], t_frame1, ks);
-        t_frame2 = t_frame2 + t_frame1;
+        cv::blur(frame_queue[i-1], t_frame1, ks);
+//        cv::normalize(t_frame1, t, 255, 0, CV_MINMAX, CV_8U);
+        t_frame2 = t_frame2 + frame_queue[i-1];// + t_frame1*((frame_queue.size()-i)/(float)frame_queue.size());
     }
-    t_frame2 = t_frame2/frame_queue.size();
+    t_frame2 = t_frame2/(frame_queue.size());
 
     return t_frame2;
 
@@ -71,9 +72,15 @@ bool DepthImagePolicy::executePolicy() {
 
     cv::Mat img = processContourFrames(curve_disc, contour_frame_queue_);// | depth_disc;
     cv::normalize(img, img, 255, 0, CV_MINMAX, CV_8U);
-    cv::Mat img2;
     cv::threshold(img, img, 25, 255, CV_THRESH_BINARY);
-    cv::imshow("Filtered Frames", img);
+
+    cv::Mat img2(img.size(), CV_8U);// = cv::Mat(img.size(), img.type(), 0);
+    img2.setTo(0);
+    cv::circle(img2, cv::Point(framebuffer_width_/2, framebuffer_height_/2), 175, cv::Scalar(255), -1);
+    img.setTo(0, img2 == 0);
+
+    cv::imshow("Averaged Frames", img);
+//    cv::waitKey(0);
     //cv::imwrite("./results/filtered_contours.png", img);
 
 
@@ -111,12 +118,12 @@ bool DepthImagePolicy::executePolicy() {
 
 
     /// Draw contours
-    cv::Mat drawing = cv::Mat::zeros( skel.size(), CV_8UC3 );
+    cv::Mat drawing = frame_element->getColorFrameElement()->clone();// cv::Mat::zeros( skel.size(), CV_8UC3 );
     vector<int> to_delete;
     vector<int> to_add;
     for( int i = 0; i< t_contours.size(); i++ ) {
         double area = cv::contourArea(t_contours[i]);
-        if(area < 350) continue;
+        if(area < 300) continue;
         if(hierarchy[i][3] >= 0 && std::find(to_delete.begin(), to_delete.end(), hierarchy[i][3]) == to_delete.end())
             to_delete.push_back(hierarchy[i][3]);
 
@@ -136,11 +143,12 @@ bool DepthImagePolicy::executePolicy() {
                                   std::back_inserter(valid_contour));
 
     // second pass to delete enclosing parent contour
+    cv::RNG rng(12);
     for( int contour_index : valid_contour) {
         contours.push_back(t_contours[contour_index]);
-        cv::Scalar color = cv::Scalar(255,255, 255);
-        drawContours( drawing, t_contours, contour_index, color, 0.8f, 8, hierarchy, 0, cv::Point() );
-        cv::imshow("contour_restults", drawing);
+        cv::Scalar color = cv::Scalar(rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+        drawContours( drawing, t_contours, contour_index, color, 2.0f, 8, hierarchy, 0, cv::Point() );
+        cv::imshow("Final Contours", drawing);
 //        cv::waitKey(0);
     }
 

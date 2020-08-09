@@ -6,14 +6,14 @@ depth = imread('/home/ynki9/Dev/ucf_research/project_edge/data/images/depth/test
 %% Load yml
 width = 640;
 height = 576;
-data = fopen('spurs.yml');
+data = fopen('fdepth.yml');
 f = textscan(data, '%s', 'Delimiter', ',');
 v = str2double(f{:});
 gv = reshape(v, width, height).';
-spurs= gv;
+fdepth = gv;
 
 %% Load yml Color Image
-data = fopen('normals.yml');
+data = fopen('fdep.yml');
 f = textscan(data, '%s', 'Delimiter', ',');
 v = str2double(f{:});
 gv = reshape(v, 4, width, height);
@@ -37,14 +37,13 @@ lrdir= gv;
 
 %% Generate Gradient Map
 width = 640;
-height = 576
+height = 576;
 
 data = fopen('ygrad.yml');
 f = textscan(data, '%s', 'Delimiter', ',');
 v = str2double(f{:});
 gv = reshape(v, width, height).';
 ygrad = gv;
-bwmorph
 
 data = fopen('xgrad.yml');
 f = textscan(data, '%s', 'Delimiter', ',');
@@ -61,4 +60,32 @@ ux = repelem(1:width, height);
 ttx =reshape(ux, [height width]);
 ux = reshape(ttx, [1 width*height]);
 figure;
-q = quiver(ux, uy*-1, txgrad, tygrad);
+quiver(ux, uy*-1, txgrad, tygrad, 30);
+magrad = sqrt(xgrad.^2+ygrad.^2);
+
+%% Generate Gradient From depth
+width = 640;
+height = 576;
+
+
+
+data = fopen('avg_depth.yml');
+f = textscan(data, '%s', 'Delimiter', ',');
+v = str2double(f{:});
+gv = reshape(v, width, height).';
+depth = gv;
+
+[xgrad, ygrad] = imgradientxy(depth, 'central');
+
+txgrad = reshape(xgrad, [1 width*height]);
+tygrad = reshape(ygrad, [1 width*height]);
+uy = repelem(1:height, width);
+tty =reshape(uy, [width height]);
+uy = reshape(tty.', [1 width*height]);
+ux = repelem(1:width, height);
+ttx =reshape(ux, [height width]);
+ux = reshape(ttx, [1 width*height]);
+figure;
+quiver(ux, uy*-1, txgrad, tygrad, 30);
+magrad = sqrt(xgrad.^2+ygrad.^2);
+imtool(magrad, []);
