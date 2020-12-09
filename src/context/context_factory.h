@@ -17,7 +17,11 @@ public:
     AppContextBuilder():
             cuda_device_(-1),
             window_width_(-1),
-            window_height_(-1){}
+            window_height_(-1){};
+    AppContextBuilder(const AppContextBuilder &) = delete;
+    AppContextBuilder(const AppContextBuilder &&) = delete;
+    AppContextBuilder &operator=(const AppContextBuilder &) = delete;
+    AppContextBuilder &operator=(const AppContextBuilder &&) = delete;
 
     /**
      * Builds an application context

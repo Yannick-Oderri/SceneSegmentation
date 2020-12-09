@@ -2,15 +2,23 @@
 // Created by ynki9 on 2/15/20.
 //
 
+#include <iostream>
 #include <GL/glew.h>
 #include "res/resource_mgr.h"
+#include "gui/imgui_all.h"
 
 
 #ifdef WITH_CUDA
 #include <cuda_runtime.h>
 #include <helper_cuda.h>
 #endif
-
+void LogGlfwError(const int error, const char *msg)
+{
+    std::ofstream errorLogger;
+    errorLogger.open("k4aviewer.err", std::ofstream::out | std::ofstream::app);
+    errorLogger << "Glfw error [" << error << "]: " << msg << std::endl;
+    errorLogger.close();
+}
 
 AppContext* const AppContextBuilder::Build() {
     if (this->initializeCuda() != 0){
@@ -66,21 +74,34 @@ int AppContextBuilder::initializeMainWindow() {
         return -1;
     }
 
-    glfwInit();
+    glfwSetErrorCallback(LogGlfwError);
+    if (!glfwInit()) {
+        LogGlfwError(0, "glfwInit Failed!"); // Failed ot initialize graphics library
+    }
+
     glfwWindowHint( GLFW_CONTEXT_VERSION_MAJOR, 3 );
     glfwWindowHint( GLFW_CONTEXT_VERSION_MINOR, 3 );
     glfwWindowHint( GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE );
     glfwWindowHint( GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE );
-    glfwWindowHint( GLFW_RESIZABLE, GL_FALSE );
+    //glfwWindowHint( GLFW_RESIZABLE, GL_FALSE );
+
     window_ = glfwCreateWindow( window_width_, window_height_, this->window_title_.data(), nullptr, nullptr );
     if ( nullptr == window_ )
     {
-        BOOST_LOG_TRIVIAL(error) << "Failed to create GLFW window";
+        LogGlfwError(0, "Failed to create GLFW window");
         glfwTerminate( );
         return EXIT_FAILURE;
     }
 
     glfwMakeContextCurrent( window_ );
+
+#ifdef ENABLE_OPENGL_DEBUGGING
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
+    glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    glDebugMessageCallback(glDebugOutput, nullptr);
+    glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
+#endif
 
     glewExperimental = GL_TRUE;
     if ( GLEW_OK != glewInit( ) )
@@ -95,8 +116,27 @@ int AppContextBuilder::initializeMainWindow() {
 
     glEnable(GL_CULL_FACE);
     glCullFace(GL_FRONT);
+
+    // initialize IMGui
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+
+    ImGui_ImplGlfw_InitForOpenGL(window_, true);
+    ImGui_ImplOpenGL3_Init("#version 330");
+
+    // Setup style
+    ImGui::StyleColorsDark();
+    ImGui::GetStyle().WindowRounding = 0.0f;
+
+    // Disable saving window layout
+    ImGui::GetIO().IniFilename = nullptr;
+
+    // [TODO] setup highdpi
+
     return 0;
 }
+
+
 
 
 int AppContextBuilder::initializeResMgr() {

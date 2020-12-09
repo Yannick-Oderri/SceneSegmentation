@@ -61,14 +61,14 @@ TEST (DISABLED_CudaEdgeOprTest, ContourOperation) {
 
 
 
-TEST (DISABLED_longcudaContourOperationUnitTest, ContourOperation) {
+TEST (longcudaContourOperationUnitTest, ContourOperation) {
     /// Initialize Application context
     AppContextBuilder app_ctx_builder;
     app_ctx_builder.setViewPortDimensions(800, 640);
     app_ctx_builder.setWindowTitle("Edge App");
     app_ctx_builder.setResDir("../../data");
     app_ctx_builder.setOutDir("./results");
-    int img_idx = 201;
+    int img_idx = 63;
 
     AppContext* const app_ctx = app_ctx_builder.Build();
 
@@ -77,22 +77,47 @@ TEST (DISABLED_longcudaContourOperationUnitTest, ContourOperation) {
     ResMgr* resMgr = app_ctx->getResMgr();
     SimpleImageProducer frame_producer(resMgr, img_idx);
     frame_producer.initialize();
-    FrameElement* frame_element = frame_producer.generateCurrentFrame(img_idx);
 
     DepthImagePolicy depth_policy(app_ctx);
-    depth_policy.intialize();
-    depth_policy.setFrameData(frame_element);
-    depth_policy.executePolicy();
+    //depth_policy.intialize();
 
-    ContourAttributes* contour_attribtues = depth_policy.getContourAttributes();
+    bool val = true;
+    cv::RNG rng(52);
+    while(val) {
+        FrameElement *frame_element = frame_producer.generateCurrentFrame(img_idx);
+        cv::imshow("depth Frame", frame_element->getDepthFrameData()->getNDepthImage());
+        cv::imshow("rgb Frame", frame_element->getColorFrameElement()->clone());
+        cv::imwrite("/home/ynki9/Pictures/ccontours.png", frame_element->getColorFrameElement()->clone());
+        depth_policy.setFrameData(frame_element);
+        depth_policy.executePolicy();
+        ContourAttributes* contour_attribtues = depth_policy.getContourAttributes();
+        cv::waitKey(0);
+        std::string prefix = "dc";
+        string dir_name = "./results/" + prefix + std::to_string(img_idx);
+        cv::Mat cmap = frame_element->getColorFrameElement()->clone();
+        for( int i = 0; i < contour_attribtues->contours.size(); i++){
+            cv::Mat bmap = cv::Mat::zeros( {DEPTH_IMAGE_WIDTH, DEPTH_IMAGE_HEIGHT}, CV_8UC3 );
+            cv::Scalar color = cv::Scalar(255, 255, 255);
+            drawContours( bmap, contour_attribtues->contours, i, color, -1 , 8);
+            cv::Scalar tcolor = cv::Scalar(rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+            drawContours( cmap, contour_attribtues->contours, i, tcolor, 2 , 8);
+            boost::filesystem::create_directories(dir_name);
+            cv::imwrite(dir_name+"/"+prefix+std::to_string(i)+".png", bmap);
+        }
+        cv::imshow("cmap", cmap);
+        cv::imwrite(dir_name+"/contours.png", cmap);
+        val = false;
+    }
 
-
-    LineSegmentContourPolicy contour_policy(app_ctx);
-    contour_policy.setContourData(contour_attribtues);
-    contour_policy.executePolicy();
+//    ContourAttributes* contour_attribtues = depth_policy.getContourAttributes();
+//
+//
+//    LineSegmentContourPolicy contour_policy(app_ctx);
+//    contour_policy.setContourData(contour_attribtues);
+//    contour_policy.executePolicy();
 }
 
-TEST (k4aContourOperationUnitTest, ContourOperation) {
+TEST (DISABLED_k4aContourOperationUnitTest, ContourOperation) {
     /// Initialize Application context
     AppContextBuilder app_ctx_builder;
     app_ctx_builder.setViewPortDimensions(800, 640);
@@ -116,6 +141,7 @@ TEST (k4aContourOperationUnitTest, ContourOperation) {
         EXPECT_NE(frame_element, nullptr);
         cv::imshow("depth Frame", frame_element->getDepthFrameData()->getNDepthImage());
         cv::imshow("color frame", frame_element->getColorFrameElement()->clone());
+        cv::imwrite("./results/col.png", frame_element->getColorFrameElement()->clone());
         depth_policy.setFrameData(frame_element);
         depth_policy.executePolicy();
         cv::waitKey(1);

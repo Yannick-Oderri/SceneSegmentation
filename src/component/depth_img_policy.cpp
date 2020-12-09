@@ -28,26 +28,47 @@ app_context_(app_context){
 
 void updateEdgeParameters(EdgeParameters* const params);
 
+bool RESET_DEPTH_QUEUE;
 cv::Mat processContourFrames(cv::Mat new_frame, std::deque<cv::Mat>& frame_queue){
     cv::Mat n_frame;
     new_frame.convertTo(n_frame, CV_16U);
-    frame_queue.push_front(n_frame);
-    if(frame_queue.size() > 20){
-        frame_queue.pop_back();
+
+    // Check if variance between frame and head is significant enought ro reset queue
+    cv::Scalar mean;
+    cv::Scalar stdev;
+
+    if(frame_queue.size() > 1) {
+        cv::Mat d_frame = n_frame - frame_queue.front();
+        cv::meanStdDev(d_frame, mean, stdev);
+        std::cout << "Standard Deviation: " << stdev[0];
     }
-    const int k_size[] = {1, 2, 4, 6, 8, 10};
     cv::Mat t_frame1 = cv::Mat::zeros(new_frame.rows, new_frame.cols, n_frame.type());
     cv::Mat t_frame2 = cv::Mat::zeros(new_frame.rows, new_frame.cols, n_frame.type());
-    cv::Mat t;
-    for(int i=1; i <= frame_queue.size(); i++){
-        float k_size = pow(i*0.3, 2)+3;
-        cv::Size ks((int)k_size, (int)k_size);
-        cv::blur(frame_queue[i-1], t_frame1, ks);
-//        cv::normalize(t_frame1, t, 255, 0, CV_MINMAX, CV_8U);
-        t_frame2 = t_frame2 + frame_queue[i-1];// + t_frame1*((frame_queue.size()-i)/(float)frame_queue.size());
-    }
-    t_frame2 = t_frame2/(frame_queue.size());
 
+    if(stdev[0] < 19) {
+        frame_queue.push_front(n_frame);
+        if (frame_queue.size() > 16) {
+            frame_queue.pop_back();
+        }
+        const int k_size[] = {1, 2, 4, 6, 8, 10};
+        cv::Mat t;
+        for (int i = 1; i <= frame_queue.size(); i++) {
+            float k_size = pow(i * 0.3, 2) + 3;
+            cv::Size ks((int) k_size, (int) k_size);
+            cv::blur(frame_queue[i - 1], t_frame1, ks);
+//        cv::normalize(t_frame1, t, 255, 0, CV_MINMAX, CV_8U);
+            t_frame2 = t_frame2 + frame_queue[i - 1];// + t_frame1*((frame_queue.size()-i)/(float)frame_queue.size());
+        }
+        t_frame2 = t_frame2 / (frame_queue.size());
+
+        return t_frame2;
+        RESET_DEPTH_QUEUE = false;
+    }else{
+        RESET_DEPTH_QUEUE = true;
+    }
+
+    frame_queue.clear();
+    //frame_queue.push_front(n_frame);
     return t_frame2;
 
 }
@@ -76,8 +97,8 @@ bool DepthImagePolicy::executePolicy() {
 
     cv::Mat img2(img.size(), CV_8U);// = cv::Mat(img.size(), img.type(), 0);
     img2.setTo(0);
-    cv::circle(img2, cv::Point(framebuffer_width_/2, framebuffer_height_/2), 175, cv::Scalar(255), -1);
-    img.setTo(0, img2 == 0);
+    //cv::circle(img2, cv::Point(framebuffer_width_/2, framebuffer_height_/2), 215, cv::Scalar(255), -1);
+    //img.setTo(0, img2 == 0);
 
     cv::imshow("Averaged Frames", img);
 //    cv::waitKey(0);
@@ -118,7 +139,7 @@ bool DepthImagePolicy::executePolicy() {
 
 
     /// Draw contours
-    cv::Mat drawing = frame_element->getColorFrameElement()->clone();// cv::Mat::zeros( skel.size(), CV_8UC3 );
+    cv::Mat drawing = cv::Mat::zeros( skel.size(), CV_8UC3 ); //frame_element->getColorFrameElement()->clone();//
     vector<int> to_delete;
     vector<int> to_add;
     for( int i = 0; i< t_contours.size(); i++ ) {
@@ -147,10 +168,14 @@ bool DepthImagePolicy::executePolicy() {
     for( int contour_index : valid_contour) {
         contours.push_back(t_contours[contour_index]);
         cv::Scalar color = cv::Scalar(rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-        drawContours( drawing, t_contours, contour_index, color, 2.0f, 8, hierarchy, 0, cv::Point() );
-        cv::imshow("Final Contours", drawing);
+        drawContours( drawing, t_contours, contour_index, color, 2 , 8, hierarchy, 0, cv::Point() );
 //        cv::waitKey(0);
     }
+
+//    cv::Size wndsize(1024, 921);
+//    cv::resize(drawing, drawing, wndsize);
+    cv::imshow("Final Contours", drawing);
+    cv::imwrite("/home/ynki9/Pictures/contours.png", drawing);
 
     /*if(contour_idx >= 0){
         cv::Scalar color = cv::Scalar( 255, 20, 20); //rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
@@ -181,7 +206,7 @@ bool DepthImagePolicy::executePolicy() {
     //frame_element->setEdgeData(depth_disc, curve_disc, drawing);
 
     /// Push Contour data along with frame data to next stage in pipeline
-    //this->contour_attributes_ = new ContourAttributes(frame_element, contours);
+    this->contour_attributes_ = new ContourAttributes(frame_element, contours);
     return true;
 }
 
@@ -358,7 +383,7 @@ void DepthImagePolicy::intializeGLParams(AppContext* const ctxt) {
 cv::Mat DepthImagePolicy::cuProcessCurveDiscontinuity(FrameElement* const frame_element, EdgeParameters* const edge_param){
     boost::timer::auto_cpu_timer profiler_process_CD("PROFILER: Curve Disc Opr \t\t\t Time: %w secs\n");
     cv::Mat depth_img = frame_element->getDepthFrameData()->getDepthImage();
-    cv::Mat res = cuCurveDiscOperation(depth_img);
+    cv::Mat res = cuCurveDiscOperation(depth_img, RESET_DEPTH_QUEUE);
     return res;
 }
 

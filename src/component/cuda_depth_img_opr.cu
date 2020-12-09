@@ -323,6 +323,64 @@ void calculate_variance(cudaTextureObject_t src_img, NppiSize src_size, Npp32f* 
 }
 
 __global__
+void variance_f32(cudaTextureObject_t src_img, Npp32s dst_step, int wnd_size, Npp32f* out_vals){
+    __shared__ float2 cache[32*32];
+    int cache_offset = threadIdx.x + blockDim.y * threadIdx.y;
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+
+    Npp32f local_mean = 0;
+    Npp32f local_variance = 0;
+    Npp32f inc_val = 0;
+
+    Npp32f g = tex2D<Npp32f>(src_img, x, y);
+    if(g != 0) { // do not perform operation on invalid region
+        inc_val = 1;
+        int wnd_range = wnd_size / 2;
+        int valid_pix_count = 0;
+        for (int i = 0; i < wnd_size * wnd_size; i++) {
+            int u = i / wnd_size;
+            int v = i % wnd_size;
+            Npp32f pixel = tex2D<float>(src_img, (int) (x + v - wnd_range), (int) (y + u - wnd_range));
+//            if (pixel != 0) { // avoid invalid regions
+                valid_pix_count++;
+                local_mean = local_mean + pixel;
+                local_variance = local_variance + (pixel * pixel);
+//            }
+        }
+
+
+        local_mean = local_mean / valid_pix_count;
+        local_variance = local_variance / valid_pix_count;
+        local_variance = local_variance - (local_mean * local_mean);
+
+    }
+
+    // ensure local mean and variance are 0 for invalid regions
+    cache[cache_offset].x = local_variance;
+    cache[cache_offset].y = inc_val;
+
+    __syncthreads();
+
+    int i = blockDim.x * blockDim.y / 2;
+    while(i != 0){
+        if(cache_offset < i) {
+            cache[cache_offset].x = cache[cache_offset].x + cache[cache_offset + i].x;
+            cache[cache_offset].y = cache[cache_offset].y + cache[cache_offset + i].y;
+        }
+
+        __syncthreads();
+        i /= 2;
+    }
+
+    if(cache_offset == 0) {
+//        out_vals[blockIdx.x + blockIdx.y * blockDim.x] = cache[cache_offset].x;
+//        out_vals[blockIdx.x + blockDim.x * blockIdx.y] = cache[cache_offset];
+        atomicAdd(out_vals, cache[0].x);
+    }
+}
+
+__global__
 void calculate_variance_32f4c(cudaTextureObject_t src_img, NppiSize src_size, Npp32f* loc_mean,
                         Npp32f* loc_variance, Npp32s dst_step, Npp32u wnd_size, float2* out_vals){
     __shared__ float2 cache[32*32*4];
@@ -460,7 +518,7 @@ void wiener_opr(cudaTextureObject_t src_tex, NppiSize src_size,
         host_buffer = (float2*)malloc(sizeof(float2)*block_size);
     }
 
-     dim3 blocks(block_width, block_height);
+    dim3 blocks(block_width, block_height);
     dim3 threads(target_thread.width, target_thread.height);
     float2* gv_buffer = (float2*)output_buffer;
     // Calculate per-pixel variance, per-pixel mean, and global variance
@@ -699,10 +757,10 @@ void normal_vector_seperation(cudaTextureObject_t normal_img, NppiSize src_size,
     vec.z /= mag;
 
     float4 norm;
-    float sv[] = {1, 1, 1};
+    float sv[] = {1, 1, 1, 1,1,1,1,1,1};
     float hori_val = 0;
     float vert_val = 0;
-    for(int v=0; v < 3; v++) {
+    for(int v=0; v < 5; v++) {
         float4 tres1 = tex2D<float4>(normal_img, x-1, y+v-1);
         float mag_1 = sqrt(pow(tres1.x, 2) + pow(tres1.y, 2) + pow(tres1.z, 2));
         tres1.x /= mag_1;
@@ -920,6 +978,35 @@ void and_8u(cudaTextureObject_t tex1, cudaTextureObject_t tex2, Npp8u* dst_img, 
     Npp8u  val2 = tex2D<Npp8u>(tex2, x, y);
 
     row[x] = (val1 & val2);
+}
+
+__global__
+void sub_8u(cudaTextureObject_t tex1, cudaTextureObject_t tex2, Npp8u* dst_img, int dst_step){
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+
+    Npp8u *row =
+            (Npp8u *)(((Npp8u*)dst_img)+(y*dst_step));
+    Npp8u val1 = tex2D<Npp8u>(tex1, x, y);
+    Npp8u  val2 = tex2D<Npp8u>(tex2, x, y);
+
+    row[x] = (val1 - val2);
+}
+
+
+__global__
+void sub_32f(Npp32f* tex1, Npp32f* tex2, Npp32f* dst_img, int dst_step){
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+
+    Npp8u *row =
+            (Npp8u *)(((Npp8u*)dst_img)+(y*dst_step));
+
+
+    float* tex1_row = (float *)(((char*)tex1)+(y*dst_step));
+    float* tex2_row = (float *)(((char*)tex2)+(y*dst_step));
+
+    row[x] = (tex1_row[x] - tex2_row[x]);
 }
 
 __global__
@@ -1142,21 +1229,54 @@ void getRunningAverage_f32(CurveDiscTextureUnits& tunits, Npp32f* const frame_bu
 
 }
 
+
 float** depth_frame_buffers = nullptr;
 __host__
-void averageDepthFrame(CurveDiscTextureUnits& tunits, TexID_F32 frame_id, TexID_F32 result_id){
-    int buffer_len = 5; // AVG_DEPTH_FRAMES_LEN;
+void averageDepthFrame(CurveDiscTextureUnits& tunits, TexID_F32 frame_id, TexID_F32 result_id, bool reset_depth_queue=false){
+    int buffer_len = AVG_DEPTH_FRAMES_LEN;
     if(depth_frame_buffers == nullptr){ // Alocate depth frame buffer if not available
         depth_frame_buffers = (Npp32f**)malloc(sizeof(Npp32f*)*buffer_len);
         size_t pitch;
         for(int i = 0; i < buffer_len; i++){
             checkCudaErrors(cudaMallocPitch(&depth_frame_buffers[i], &pitch, sizeof(float)*tunits.getWidth(), tunits.getHeight()));
         }
-    }else{
-        int x = 5;
+    }
+    if(reset_depth_queue){
+        for(int i = 0; i < buffer_len; i++){
+            checkCudaErrors(cudaMemset(depth_frame_buffers[i], 0, tunits.f32Pitch()*tunits.getHeight()));
+        }
     }
 
+
+    NppiSize target_thread = {32, 32};
+    int block_width = tunits.getWidth() / target_thread.width;
+    int block_height = tunits.getHeight() / target_thread.height;
+    int block_size = block_width * block_height;
+    dim3 blocks(block_width, block_height);
+    dim3 threads(target_thread.width, target_thread.height);
+
+
+    static float2* host_buffer;
+    if (host_buffer == nullptr){
+        host_buffer = (float2*)malloc(sizeof(float2)*block_size*4);
+    }
+
+    // check variance between incomming depth buffer and prior frame
     static int front = 0;
+    float variance = 0;
+
+//    tunits.zero(TBUFFER2_F32);
+//    int prior_frame = abs(front-1) % buffer_len;
+//    sub_32f<<<blocks, threads>>>(tunits.getBuffer(frame_id), depth_frame_buffers[prior_frame],
+//            tunits.getBuffer(TBUFFER1_F32), tunits.f32Pitch());
+//    tunits.outputTexture(TBUFFER2_F32, "diff buf");
+//    variance_f32<<<blocks, threads>>>(tunits.getTexture(TBUFFER1_F32), tunits.f32Pitch(), 5, tunits.getBuffer(TBUFFER2_F32));
+//    cudaMemcpy(&variance, tunits.getBuffer(TBUFFER2_F32), sizeof(float), cudaMemcpyDeviceToHost);
+//    if(variance > MAX_FRAME_VARIANCE){
+//        // reset variance
+//    }
+
+
 
     getRunningAverage_f32(tunits, depth_frame_buffers, buffer_len, front, frame_id, result_id);
     front++;
@@ -1456,7 +1576,7 @@ void setupCudaTexture(int width, int height, void* cuda_img, size_t pitch, cudaT
 
 
 __host__
-cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map, CurveDiscTextureUnits& tex_units){
+cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map, CurveDiscTextureUnits& tex_units, bool reset_depth_queue){
 
 #ifdef DEBUG_CD_OPR_OUTPUT
     cv::Mat td_img;
@@ -1494,7 +1614,7 @@ cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map, CurveDiscTextureUnits& tex_
             depth_map.step, sizeof(float)*width, height, cudaMemcpyHostToDevice));
 
     // Fill Invalid Regions on depth image
-    for(int i = 0; i < 10; i++){
+    for(int i = 0; i < 8; i++){
         checkCudaErrors(cudaDeviceSynchronize());
         if(i%2 == 0){
             interpolate_invalid_regions<<<blocks, threads>>>(
@@ -1510,8 +1630,8 @@ cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map, CurveDiscTextureUnits& tex_
     }
 
     // Average depth frame
-    //tex_units.outputTexture(SBUFFER2_F32, "depth");
-    averageDepthFrame(tex_units, SBUFFER2_F32, SBUFFER1_F32);
+    tex_units.outputTexture(SBUFFER2_F32, "Depth Discontinuity");
+    averageDepthFrame(tex_units, SBUFFER2_F32, SBUFFER1_F32, reset_depth_queue);
 //    tex_units.outputTexture(SBUFFER1_F32, "avg_depth", true);
     //cv::waitKey(0);
 
@@ -1527,8 +1647,8 @@ cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map, CurveDiscTextureUnits& tex_
             tex_units.getBuffer(DEPTH_U8), tex_units.u8Pitch(), depth_min, depth_max);
 
     // Perform Canny for Depth Discontinuity Edges
-    float dd_high_thresh = 0.07;
-    float dd_low_thresh = dd_high_thresh * 0.9;
+    float dd_high_thresh = 0.085;
+    float dd_low_thresh = dd_high_thresh * 0.55;
     nppiFilterCannyBorder_8u_C1R(
             tex_units.getBuffer(DEPTH_U8),
             tex_units.u8Pitch(),
@@ -1555,7 +1675,7 @@ cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map, CurveDiscTextureUnits& tex_
 
     // Filter Input Image
     wiener_opr(tex_units, SBUFFER1_F32, DEPTH_F32, 5); // filter valid regions
-    wiener_opr(tex_units, SBUFFER1_F32, DEPTH_F32, -1); // perform global region filtering
+    //wiener_opr(tex_units, SBUFFER1_F32, DEPTH_F32, -1); // perform global region filtering
 
     tex_units.outputTexture(DEPTH_F32, "fdepth");
 #ifdef DEBUG_CD_OPR_OUTPUT
@@ -1633,6 +1753,7 @@ cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map, CurveDiscTextureUnits& tex_
     tex_units.outputTexture(HNORMEDGE_F32, "hnormedge");
     tex_units.outputTexture(VNORMEDGE_F32, "vnormedge");
 #endif
+
     float xrange_max, xrange_min;
     determineTextureRange(tex_units.getTexture(LRDIR_F32), src_size, xrange_max, xrange_min);
     float yrange_max, yrange_min;
@@ -1659,7 +1780,7 @@ cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map, CurveDiscTextureUnits& tex_
             NppiMaskSize::NPP_MASK_SIZE_3_X_3,
             lowThresh* 255,
             highThresh * 255,
-            NppiNorm::nppiNormL2,
+            NppiNorm::nppiNormL1,
             NppiBorderType::NPP_BORDER_REPLICATE,
             canny_buffer
             );
@@ -1680,16 +1801,16 @@ cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map, CurveDiscTextureUnits& tex_
             NppiMaskSize::NPP_MASK_SIZE_3_X_3,
             0.9 * 0.5 * 255,
             0.5 * 255,
-            NppiNorm::nppiNormL2,
+            NppiNorm::nppiNormL1,
             NppiBorderType::NPP_BORDER_REPLICATE,
             canny_buffer
     );
 
 
 
-//    tex_units.outputTexture(LREDGE_U8, "LR_EDGE");
+    tex_units.outputTexture(LREDGE_U8, "LR_EDGE");
 //    tex_units.outputTexture(MAGGRAD_F32, "magnitude", true);
-//    tex_units.outputTexture(UDEDGE_U8, "UD EDGE");
+    tex_units.outputTexture(UDEDGE_U8, "UD EDGE");
 //    cv::waitKey(0);
 
 
@@ -1736,15 +1857,23 @@ cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map, CurveDiscTextureUnits& tex_
             tex_units.getTexture(UDEDGE_U8),
             tex_units.getBuffer(SBUFFER7_U8),
             tex_units.u8Pitch());
+    despeckle(tex_units, SBUFFER7_U8, SBUFFER7_U8, 2);
+    despeckle(tex_units, DD_U8, DD_U8, 2);
+    fatten(tex_units, SBUFFER7_U8, SBUFFER7_U8, 2);
+//    fatten(tex_units, DD_U8, DD_U8, 2);
     or_8u<<<blocks, threads>>>(
             tex_units.getTexture(SBUFFER7_U8),
             tex_units.getTexture(DD_U8),
             tex_units.getBuffer(SBUFFER7_U8),
             tex_units.u8Pitch());
+
+    majority(tex_units, SBUFFER7_U8, SBUFFER7_U8, 2);
+    tex_units.outputTexture(SBUFFER7_U8, "cdd");
+    thin(tex_units, SBUFFER7_U8, SBUFFER7_U8, 10);
     prune(tex_units, SBUFFER7_U8, SBUFFER7_U8, 6);
-    despeckle(tex_units, SBUFFER7_U8, SBUFFER7_U8, 2);
-//    tex_units.outputTexture(SBUFFER7_U8, "ddnlredge");
-//    fatten(tex_units, SBUFFER7_U8, SBUFFER7_U8, 2);
+    tex_units.outputTexture(SBUFFER7_U8, "synthetic_contours", true);
+    tex_units.outputTexture(SBUFFER7_U8, "ddnlredge");
+    fatten(tex_units, SBUFFER7_U8, SBUFFER7_U8, 2);
     threshold_8u<<<blocks, threads>>>(
             tex_units.getTexture(SBUFFER7_U8), 1,
             tex_units.getBuffer(SBUFFER7_U8), tex_units.u8Pitch());
@@ -1753,13 +1882,14 @@ cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map, CurveDiscTextureUnits& tex_
                                tex_units.getTexture(SBUFFER1_U8),
                                tex_units.getBuffer(SBUFFER6_U8), tex_units.u8Pitch());
     majority(tex_units, SBUFFER6_U8, SBUFFER6_U8, 1);
-    fatten(tex_units, SBUFFER6_U8, SBUFFER6_U8, 2);
-//    tex_units.outputTexture(SBUFFER6_U8, "magnedge");
+   // fatten(tex_units, SBUFFER6_U8, SBUFFER6_U8, 2);
+    tex_units.outputTexture(SBUFFER6_U8, "magnedge");
     majority(tex_units, SBUFFER6_U8, SBUFFER6_U8, 2);
+    tex_units.outputTexture(SBUFFER6_U8, "magnedge");
 
     prune(tex_units, NORMEDGE_U8, SBUFFER9_U8, 2);
     thin(tex_units, SBUFFER9_U8, SBUFFER9_U8, 2);
-//    tex_units.outputTexture(SBUFFER9_U8, "edges1");
+    tex_units.outputTexture(SBUFFER9_U8, "edges1");
 
     threshold_8u<<<blocks, threads>>>(
             tex_units.getTexture(SBUFFER6_U8), 1,
@@ -1770,25 +1900,25 @@ cv::Mat launchCurveDiscOprKernel(cv::Mat& depth_map, CurveDiscTextureUnits& tex_
     or_8u<<<blocks, threads>>>(tex_units.getTexture(SBUFFER6_U8),
             tex_units.getTexture(SBUFFER9_U8),
             tex_units.getBuffer(SBUFFER8_U8), tex_units.u8Pitch());
-//    tex_units.outputTexture(SBUFFER8_U8, "edgesf");
+    tex_units.outputTexture(SBUFFER8_U8, "edgesf");
 
-    majority(tex_units, SBUFFER8_U8, SBUFFER9_U8, 10);
-//    tex_units.outputTexture(SBUFFER8_U8, "majority");
+    majority(tex_units, SBUFFER8_U8, SBUFFER9_U8, 1);
+    tex_units.outputTexture(SBUFFER9_U8, "majority");
 
     thin(tex_units, SBUFFER9_U8, SBUFFER8_U8, 12);
-//    tex_units.outputTexture(SBUFFER8_U8, "thinned");
+    tex_units.outputTexture(SBUFFER8_U8, "thinned");
     prune(tex_units,SBUFFER8_U8, SBUFFER7_U8, 12);
     despeckle(tex_units, SBUFFER7_U8, SBUFFER8_U8, 1);
-//    tex_units.outputTexture(SBUFFER8_U8, "spurred");
-
-//    cv::imwrite("./results/spur.png", tex_units.toCVMat(SBUFFER7_U8));
+////    tex_units.outputTexture(SBUFFER8_U8, "spurred");
+//
+////    cv::imwrite("./results/spur.png", tex_units.toCVMat(SBUFFER7_U8));
+////    cv::waitKey(0);
+//
+//#ifdef DEBUG_CD_OPR_OUTPUT
+//    tex_units.outputTexture(LREDGE_U8, "lredge", true);
+//    tex_units.outputTexture(UDEDGE_U8, "udedge", true);
 //    cv::waitKey(0);
-
-#ifdef DEBUG_CD_OPR_OUTPUT
-    tex_units.outputTexture(LREDGE_U8, "lredge", true);
-    tex_units.outputTexture(UDEDGE_U8, "udedge", true);
-    cv::waitKey(0);
-#endif
+//#endif
 
     cv::Mat tres = tex_units.toCVMat(SBUFFER8_U8);
 //    cv::imshow("frame contour", tres);
@@ -1993,12 +2123,12 @@ cv::Mat cleanDiscontinuityOpr(cv::Mat& disc_img){
 
 CurveDiscTextureUnits* tex_units;
 extern "C"
-cv::Mat cuCurveDiscOperation(cv::Mat& depth_map){
+cv::Mat cuCurveDiscOperation(cv::Mat& depth_map, bool reset_depth_queue){
     if(tex_units == nullptr){
         tex_units = new CurveDiscTextureUnits(depth_map.cols, depth_map.rows);
     }
 
-    cv::Mat x = launchCurveDiscOprKernel(depth_map, *tex_units);
+    cv::Mat x = launchCurveDiscOprKernel(depth_map, *tex_units, reset_depth_queue);
 
     tex_units->zeroElements();
 

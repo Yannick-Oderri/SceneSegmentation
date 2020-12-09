@@ -490,38 +490,38 @@ int findEnclosingContour(std::vector<std::vector<cv::Point>> &contours, std::vec
 }
 
 #ifdef WITH_CUDA
-std::vector<cv::Point>
-performRansacOnCotour(cv::Mat &img, std::vector<std::vector<cv::Point>> &contours, int idx, cv::Point2d &point, std::vector<cv::Vec4i> &hierarchy){
-    cv::Mat contour_img(cv::Size(640, 480), CV_8UC1);
-
-    drawContours( contour_img, contours, idx, cv::Scalar(255), cv::FILLED, 8, hierarchy, 0, cv::Point() );
-    double contour_area = cv::contourArea(contours[idx]);
-    int expected_points = std::min((int)(contour_area * 0.4f), 150);
-    int num_points = 0;
-    std::vector<double3> points(expected_points);
-
-    cv::RNG rng(3432764);
-
-    auto rect = cv::boundingRect(contours[idx]);
-    while(num_points < expected_points){
-        int x = rng.uniform(rect.x, rect.x + rect.width);
-        int y = rng.uniform(rect.y, rect.y + rect.height);
-        if(contour_img.at<unsigned char>(y, x) >= 200) {
-            points[num_points].x = x;
-            points[num_points].y = y;
-            points[num_points].z = img.at<float>(y, x) * 1000;
-            num_points++;
-        }
-    }
-    std::vector<double3> ransac_points =  execute_ransac(points);
-    // BOOST_LOG_TRIVIAL(info) << "Printing ransac points";
-    std::vector<cv::Point> ransac_results;
-    for(auto p: ransac_points){
-        // BOOST_LOG_TRIVIAL(info) << " " << p.x << " " << p.y << " " << p.z;
-        ransac_results.push_back(cv::Point(p.x, p.y));
-    }
-
-    return ransac_results;
-
-}
+//std::vector<cv::Point>
+//performRansacOnCotour(cv::Mat &img, std::vector<std::vector<cv::Point>> &contours, int idx, cv::Point2d &point, std::vector<cv::Vec4i> &hierarchy){
+//    cv::Mat contour_img(cv::Size(640, 480), CV_8UC1);
+//
+//    drawContours( contour_img, contours, idx, cv::Scalar(255), cv::FILLED, 8, hierarchy, 0, cv::Point() );
+//    double contour_area = cv::contourArea(contours[idx]);
+//    int expected_points = std::min((int)(contour_area * 0.4f), 150);
+//    int num_points = 0;
+//    std::vector<double3> points(expected_points);
+//
+//    cv::RNG rng(3432764);
+//
+//    auto rect = cv::boundingRect(contours[idx]);
+//    while(num_points < expected_points){
+//        int x = rng.uniform(rect.x, rect.x + rect.width);
+//        int y = rng.uniform(rect.y, rect.y + rect.height);
+//        if(contour_img.at<unsigned char>(y, x) >= 200) {
+//            points[num_points].x = x;
+//            points[num_points].y = y;
+//            points[num_points].z = img.at<float>(y, x) * 1000;
+//            num_points++;
+//        }
+//    }
+//    std::vector<double3> ransac_points =  execute_ransac(points);
+//    // BOOST_LOG_TRIVIAL(info) << "Printing ransac points";
+//    std::vector<cv::Point> ransac_results;
+//    for(auto p: ransac_points){
+//        // BOOST_LOG_TRIVIAL(info) << " " << p.x << " " << p.y << " " << p.z;
+//        ransac_results.push_back(cv::Point(p.x, p.y));
+//    }
+//
+//    return ransac_results;
+//
+//}
 #endif
