@@ -5,7 +5,7 @@
 #ifndef PROJECT_EDGE_PEIMGUI_ALL_H
 #define PROJECT_EDGE_PEIMGUI_ALL_H
 
-#include <GL/gl3w.h>
+//#include <GL/gl3w.h>
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>

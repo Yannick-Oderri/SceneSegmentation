@@ -5,6 +5,7 @@
 #ifndef PROJECT_EDGE_CONTEXT_FACTORY_H
 #define PROJECT_EDGE_CONTEXT_FACTORY_H
 
+#include <memory>
 #include <boost/filesystem.hpp>
 
 #include "context/context.h"
@@ -27,7 +28,7 @@ public:
      * Builds an application context
      * @return
      */
-    AppContext* const Build();
+    std::unique_ptr<AppContext> Build();
 
     /**
      * Check if CUDA device available

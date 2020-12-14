@@ -5,14 +5,19 @@
 #ifndef PROJECT_EDGE_GLVIEWER_H
 #define PROJECT_EDGE_GLVIEWER_H
 
+// system headers
+#include <memory>
+
+// project headers
 #include "context/context.h"
-#include <memory.h>
+#include "gui/viewersettingsmanager.h"
+
 
 
 class ViewerApp {
 public:
-    explicit ViewerApp(std::unique_ptr<AppContext> ctxt): appContext_(std::move(ctxt)){};
-    ~glViewer();
+    ViewerApp(std::unique_ptr<AppContext> &ctxt): appContext_(std::move(ctxt)){};
+    ~ViewerApp(){};
 
     void Run();
 
@@ -25,11 +30,15 @@ private:
     void ShowMainMenuBar();
 
     void setHighDpi();
-    void ShowErrorOverlay();
+    void ShowErrorOverlay();    
+    void ShowViewerOptionMenuItem(const char *msg, ViewerOption option);
+
 
     bool showPerfMetrics = false;
-    std::shared_ptr<AppContext> appContext_;
+    std::unique_ptr<AppContext> appContext_;
 };
+
+
 
 
 #endif //PROJECT_EDGE_GLVIEWER_H

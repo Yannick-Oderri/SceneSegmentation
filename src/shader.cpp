@@ -1,6 +1,7 @@
 #include "shader.hpp"
 
-#include <GL/glew.h>
+// #include <GL/glew.h>
+#include <glad/glad.h>
 
 
 Shader::Shader(const Shader& cpy):

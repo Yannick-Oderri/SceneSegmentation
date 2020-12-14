@@ -3,24 +3,28 @@ CMAKE_MINIMUM_REQUIRED(VERSION 3.11)
 # ========================================================
 # = Project Options
 # ========================================================
-OPTION(ENABLE_CUDA "Enable CUDA support" ON)
+OPTION(ENABLE_CUDA "Enable CUDA support" OFF)
 OPTION(ENABLE_IMGUI "Enable Dear IMGUI support" ON)
-OPTION(ENABLE_k4a "Enable Azure Kinect" ON)
+OPTION(ENABLE_k4a "Enable Azure Kinect" OFF)
 OPTION(ENABLE_QT "Enable Qt UI" OFF)
 OPTION(ENABLE_OPENGL "Enable OpenGL support" ON)
 OPTION(ENABLE_OPENCV "Enable OpenCV support" ON)
 OPTION(ENABLE_BOOST "Enable Boost support" ON)
-OPTION(ENABLE_FREENECT2 "Enable Kinectv2 Drivers" ON) # not functional atm
+OPTION(ENABLE_FREENECT2 "Enable Kinectv2 Drivers" OFF) # not functional atm
 OPTION(PACKAGE_TESTS "Build the tests" ON)
 OPTION(PACKAGE_RUNTIME "Build runtime files" OFF)
 
 # ========================================================
 # = Project Settings
 # ========================================================
-ADD_DEFINITIONS(-DWITH_CUDA)
+IF (ENABLE_CUDA)
+  ADD_DEFINITIONS(-DWITH_CUDA)
+ENDIF(ENABLE_CUDA)
 #ADD_DEFINITIONS(-DWITH_KINECTV2)
 #ADD_DEFINITIONS(-DRESIZE_KINECTV2_FRAME)
-#ADD_DEFINITIONS(-DWITH_AZURE_KINECT)
+IF (ENABLE_K4A)
+  ADD_DEFINITIONS(-DWITH_K4A)
+ENDIF (ENABLE_K4A)
 #ADD_DEFINITIONS(-DOUTPUT_INTERNAL_STAGES)
 ADD_DEFINITIONS(-DDEBUG_CNTR_PLCY_IMG_RESULTS)
 ADD_DEFINITIONS(-DDEBUG_DEPTH_PLCY_IMG_RESULTS)
@@ -56,7 +60,7 @@ IF(NOT DEFINED CMAKE_BUILD_TYPE)
 ENDIF()
 
 ADD_DEFINITIONS(-DCMAKE_EXPORT_COMPILE_COMMANDS)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -rdynamic")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 set(CMAKE_CXX_STANDARD 17)
@@ -80,37 +84,47 @@ ENDIF()
 # = Setup Source Elements
 # ========================================================
 SET(project_edge_SOURCE
-        app.cpp
+        #app.cpp
         context/context.cpp
         context/context_factory.cpp
         res/resource_mgr.cpp
-        viewer/gl_viewport.cpp
-        viewer/gl_camera.cpp
-        shader.cpp
+        # viewer/gl_viewport.cpp
+        # viewer/gl_camera.cpp
+         shader.cpp
 
-        filter/gl_edge_disc_filter.cpp
-        filter/gl_depth_img_filter.cpp
-        filter/contour_processor.cpp
-        filter/k4a_bridge_producer.cpp
+        #filter/gl_edge_disc_filter.cpp
+        # filter/gl_depth_img_filter.cpp
+        # filter/contour_processor.cpp
+        # filter/k4a_bridge_producer.cpp
 
-        component/contour_policy.cpp
-        component/depth_img_policy.cpp
-        component/cuda_contour_operations.cu
-        component/cuda_depth_img_opr.cu
+        # component/contour_policy.cpp
+        # component/depth_img_policy.cpp
 
-        dataflow/pipeline.cpp
-        dataflow/pipeline_filter.cpp
+        # dataflow/pipeline.cpp
+        # dataflow/pipeline_filter.cpp
 
-        utils/helper.cpp
-        # utils/cuda_helper.cu
-        utils/wiener_filter.cpp
+        # utils/helper.cpp
+        # utils/wiener_filter.cpp
 
 
-        draw/drawable.cpp
-        draw/line_sgmnt.cpp
-        draw/line_pair.cpp
+        # draw/drawable.cpp
+        # draw/line_sgmnt.cpp
+        # draw/line_pair.cpp
 
+
+        gui/application.cpp
+        gui/windowmanager.cpp
+        
 )
+
+IF (ENABLE_CUDA)
+  SET(APPEND project_edge_SOURCE
+    component/cuda_contour_operations.cu
+    component/cuda_depth_img_opr.cu
+    # utils/cuda_helper.cu
+  )
+ENDIF(ENABLE_CUDA)
+
 SET(project_edge_HEADERS
         app.h
         context.h
@@ -193,6 +207,7 @@ ENDIF()
 IF(ENABLE_IMGUI)
   INCLUDE_DIRECTORIES( "${project_edge_VENDOR_DIR}/imgui" )
   INCLUDE_DIRECTORIES( "${project_edge_VENDOR_DIR}/imgui/examples" )
+  ADD_DEFINITIONS(-DIMGUI_IMPL_OPENGL_LOADER_GLAD)
   SET(imgui_src
           "${project_edge_VENDOR_DIR}/imgui/imgui.cpp"
           "${project_edge_VENDOR_DIR}/imgui/imgui_widgets.cpp"
@@ -223,12 +238,18 @@ ENDIF()
 # ========================================================
 IF(ENABLE_OPENGL)
   # Prefer OpenGLX Over Legacy
-  set(OpenGL_GL_PREFERENCE "GLVND")
+  # set(OpenGL_GL_PREFERENCE "GLVND")
   FIND_PACKAGE(GLEW REQUIRED)
-  IF(NOT ${GLEW_FOUND})
-    MESSAGE(ERROR "Failed to find GLEW package.")
+  IF(${GLEW_FOUND})
+    GET_TARGET_PROPERTY(GLEW_INCLUDE_DIRS GLEW::glew INTERFACE_INCLUDE_DIRECTORIES)
+    GET_TARGET_PROPERTY(GLEW_LIBRARIES GLEW::glew INTERFACE_LINK_LIBRARIES)
+    MESSAGE(STATUS "GLEW LIB: ${GLEW_LIBRARIES}")
+  ENDIF(${GLEW_FOUND})
+  FIND_PACKAGE(gl3w REQUIRED)
+  get_target_property(GL3W_INCLUDE_DIRS gl3w INTERFACE_INCLUDE_DIRECTORIES)
+  IF(${gl3w_FOUND})
+    MESSAGE(STATUS "Found gl3w: ${GL3W_INCLUDE_DIRS}")
   ENDIF()
-
   FIND_PACKAGE(glfw3 REQUIRED)
   FIND_PACKAGE(OpenGL REQUIRED)
   ADD_SUBDIRECTORY("${project_edge_VENDOR_DIR}/glad")
@@ -237,6 +258,7 @@ IF(ENABLE_OPENGL)
     ${flextGL_INCLUDE_DIRS}
     ${glad_INCLUDE_DIRS}
     ${GLEW_INCLUDE_DIRS}
+    ${GL3W_INCLUDE_DIRS}
   )
 
   MESSAGE(STATUS "glad libs ${glad_INCLUDE_DIRS}")
@@ -276,13 +298,15 @@ ENDIF(ENABLE_OPENCV)
 IF(ENABLE_BOOST)
   SET(Boost_USE_STATIC_LIBS ON)
   SET(Boost_NO_BOOST_CMAKE ON) # OSX
-  FIND_PACKAGE(Boost
+  FIND_PACKAGE(Boost 1.74.0
           REQUIRED
           COMPONENTS filesystem log thread timer)
   IF(Boost_FOUND)
     INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIR})
     LIST(APPEND project_edge_LIBRARIES
             ${Boost_LIBRARIES})
+  ELSE()
+    MESSAGE(FATAL_ERROR "Boost Libraries not found")
   ENDIF()
 ENDIF(ENABLE_BOOST)
 
@@ -305,6 +329,17 @@ IF(ENABLE_FREENECT2)
       ENDIF()
   ENDIF()
 ENDIF(ENABLE_FREENECT2)
+
+# ========================================================
+# = APPLE Macos Deps
+# ========================================================
+if (APPLE)
+  find_library(COCOA_LIBRARY Cocoa)
+  find_library(OpenGL_LIBRARY OpenGL)
+  find_library(IOKIT_LIBRARY IOKit)
+  find_library(COREVIDEO_LIBRARY CoreVideo)
+  SET(EXTRA_LIBS ${COCOA_LIBRARY} ${OpenGL_LIBRARY} ${IOKIT_LIBRARY} ${COREVIDEO_LIBRARY})
+endif (APPLE)
 
 # ========================================================
 # = Target Runtime Declarations
@@ -351,3 +386,8 @@ IF(PACKAGE_TESTS)
   INCLUDE(GoogleTest)
   ADD_SUBDIRECTORY(test)
 endif()
+
+get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
+foreach(dir ${dirs})
+  message(STATUS "dir='${dir}'")
+endforeach()

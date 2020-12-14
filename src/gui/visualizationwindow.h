@@ -15,7 +15,7 @@ struct WindowPlacementInfo {
 class VisualizationWindow {
 public:
     virtual void Show(WindowPlacementInfo placementInfo) = 0;
-    virtual const char *getTitle() const = 0;
+    virtual const char *GetTitle() const = 0;
 
     VisualizationWindow() = default;
     virtual ~VisualizationWindow() = default;

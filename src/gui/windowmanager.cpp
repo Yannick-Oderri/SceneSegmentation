@@ -4,6 +4,7 @@
 
 #include "gui/windowmanager.h"
 #include "gui/viewersettingsmanager.h"
+#include "gui/windowsizehelper.h"
 
 WindowManager &WindowManager::Instance(){
     static WindowManager instance;
@@ -67,9 +68,9 @@ void WindowManager::ShowAll()
         const ImVec2 bottomDockRegionPos(leftDock_.GetSize().x, menuBarHeight_);
         const ImVec2 bottomDockRegionSize(glWindowSize_.x - bottomDockRegionPos.x,
                                           glWindowSize_.y - bottomDockRegionPos.y);
-        m_bottomDock.Show(bottomDockRegionPos, bottomDockRegionSize);
+        bottomDock_.Show(bottomDockRegionPos, bottomDockRegionSize);
 
-        windowAreaSize.y -= m_bottomDock.GetSize().y;
+        windowAreaSize.y -= bottomDock_.GetSize().y;
     }
 
     if (maximizedWindow_ != nullptr)
@@ -168,14 +169,14 @@ void WindowManager::ShowWindow(const ImVec2 windowAreaPosition,
 
         // Draw minimize/maximize button
         //
-        if (m_windows.WindowGroup.size() != 1)
+        if (windows_.WindowGroup.size() != 1)
         {
             if (ShowMinMaxButton("-", "+", isMaximized))
             {
-                if (m_maximizedWindow 
+                if (maximizedWindow_
                 == nullptr)
                 {
-                    m_maximizedWindow = window;
+                    maximizedWindow_ = window;
                 }
                 else
                 {
@@ -189,7 +190,7 @@ void WindowManager::ShowWindow(const ImVec2 windowAreaPosition,
     ImGui::PopStyleColor();
 }
 
-bool K4AWindowManager::ShowMinMaxButton(const char *minimizeLabel, const char *maximizeLabel, bool isMaximized)
+bool WindowManager::ShowMinMaxButton(const char *minimizeLabel, const char *maximizeLabel, bool isMaximized)
 {
     bool result = false;
 

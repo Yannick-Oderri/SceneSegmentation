@@ -67,6 +67,14 @@ private:
 
     WindowDock leftDock_ = WindowDock(WindowDock::Edge::Left);
     WindowDock bottomDock_ = WindowDock(WindowDock::Edge::Bottom);
+
+    void ShowWindowArea(ImVec2 windowAreaPosition, ImVec2 windowAreaSize, WindowListEntry *windowList);
+
+    void
+    ShowWindow(const ImVec2 windowAreaPosition, const ImVec2 windowAreaSize, VisualizationWindow *window,
+               bool isMaximized);
+
+    bool ShowMinMaxButton(const char *minimizeLabel, const char *maximizeLabel, bool isMaximized);
 };
 
 

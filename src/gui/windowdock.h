@@ -23,7 +23,7 @@ public:
     };
 
     WindowDock(Edge edge);
-    void PushDockControl(std::unique_ptr<IK4ADockControl> &&dockControl);
+    void PushDockControl(std::unique_ptr<DockControl> &&dockControl);
     void Show(ImVec2 regionPosition, ImVec2 regionSize);
     ImVec2 GetSize();
 
@@ -37,7 +37,7 @@ private:
                                                         ImGuiWindowFlags_NoBringToFrontOnFocus |
                                                         ImGuiWindowFlags_HorizontalScrollbar;
 
-    std::stack<std::unique_ptr<IK4ADockControl>> m_dockControls;
+    std::stack<std::unique_ptr<DockControl>> m_dockControls;
 
     Edge m_edge;
     std::string m_windowName;

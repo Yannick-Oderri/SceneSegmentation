@@ -2,7 +2,10 @@
 // Created by ynki9 on 12/26/19.
 //
 
+#include <boost/log/trivial.hpp>
+
 #include "context/context_factory.h"
+
 
 AppContext::AppContext(AppContextBuilder &ctx_builder):
         cuda_device_(ctx_builder.cuda_device_),

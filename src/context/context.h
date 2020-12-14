@@ -7,7 +7,6 @@
 
 #include <GLFW/glfw3.h>
 #include <string>
-#include <boost/log/trivial.hpp>
 
 using namespace std;
 using CudaDevice = int;
@@ -54,7 +53,7 @@ public:
      * GLFW Window context
      * @return
      */
-    inline GLFWwindow* const getGLContext(){
+    inline GLFWwindow* getGLContext(){
         return this->window_;
     }
 

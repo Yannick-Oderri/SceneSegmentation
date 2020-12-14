@@ -3,7 +3,9 @@
 //
 
 #include <iostream>
-#include <GL/glew.h>
+// #include <GL/glew.h>
+#include <glad/glad.h>
+#include <boost/log/trivial.hpp>
 #include "res/resource_mgr.h"
 #include "gui/imgui_all.h"
 
@@ -12,6 +14,7 @@
 #include <cuda_runtime.h>
 #include <helper_cuda.h>
 #endif
+
 void LogGlfwError(const int error, const char *msg)
 {
     std::ofstream errorLogger;
@@ -20,7 +23,7 @@ void LogGlfwError(const int error, const char *msg)
     errorLogger.close();
 }
 
-AppContext* const AppContextBuilder::Build() {
+std::unique_ptr<AppContext> AppContextBuilder::Build() {
     if (this->initializeCuda() != 0){
         BOOST_LOG_TRIVIAL(error) << "Unable to initialize CUDA.";
         return nullptr;
@@ -37,8 +40,7 @@ AppContext* const AppContextBuilder::Build() {
     }
 
 
-    AppContext* const appContext = new AppContext(*this);
-
+    std::unique_ptr<AppContext> appContext(new AppContext(*this));
     return appContext;
 }
 
@@ -103,7 +105,8 @@ int AppContextBuilder::initializeMainWindow() {
     glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
 #endif
 
-    glewExperimental = GL_TRUE;
+    // glewExperimental = GL_TRUE;
+
     if ( GLEW_OK != glewInit( ) )
     {
         BOOST_LOG_TRIVIAL(error) << "Failed to initialize GLEW" ;

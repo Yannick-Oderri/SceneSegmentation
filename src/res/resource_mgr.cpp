@@ -1,6 +1,7 @@
 //
 // Created by ynki9 on 2/15/20.
 //
+#include <boost/log/trivial.hpp>
 
 #include "resource_mgr.h"
 

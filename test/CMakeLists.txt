@@ -43,4 +43,4 @@ MACRO(PACKAGE_ADD_TEST TESTNAME)
 ENDMACRO()
 
 # PACKAGE_ADD_TEST(app_test freenect_filter_test.cpp)
-PACKAGE_ADD_TEST(app_test cuda_contour_operation_test.cpp)
+PACKAGE_ADD_TEST(app_test application_gui.cpp)

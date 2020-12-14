@@ -2,8 +2,17 @@
 // Created by ynki9 on 12/7/20.
 //
 
-#include "application.hpp"
+#include  "gui/imgui_all.h"
+#include "gui/application.hpp"
+#include "gui/windowmanager.h"
 
+
+
+const ImVec4 ClearColor(0.01f, 0.01f, 0.01f, 1.0f);
+
+constexpr int GlfwFailureExitCode = -1;
+
+constexpr float HighDpiScaleFactor = 2.0f;
 
 void ViewerApp::Run() {
     while (!glfwWindowShouldClose(appContext_->getGLContext())){
@@ -16,6 +25,23 @@ void ViewerApp::Run() {
 
         ShowMainMenuBar();
 
+        WindowManager::Instance().ShowAll();
+
+
+        // Finalize/render frame
+        //
+        ImGui::Render();
+        int displayW;
+        int displayH;
+        glfwMakeContextCurrent(appContext_->getGLContext());
+        glfwGetFramebufferSize(appContext_->getGLContext(), &displayW, &displayH);
+        glViewport(0, 0, displayW, displayH);
+        WindowManager::Instance().SetGLWindowSize(ImVec2(float(displayW), float(displayH)));
+        glClearColor(ClearColor.x, ClearColor.y, ClearColor.z, ClearColor.w);
+        glClear(GL_COLOR_BUFFER_BIT);
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        glfwSwapBuffers(appContext_->getGLContext());
     }
 }
 
@@ -24,48 +50,17 @@ void ViewerApp::ShowMainMenuBar()
 {
     if (ImGui::BeginMainMenuBar())
     {
-        if (ImGui::BeginMenu("Settings"))
-        {
-            ShowViewerOptionMenuItem("Show log dock", ViewerOption::ShowLogDock);
-            ShowViewerOptionMenuItem("Show info overlay", ViewerOption::ShowInfoPane);
-
-            if (K4AViewerSettingsManager::Instance().GetViewerOption(ViewerOption::ShowInfoPane))
-            {
-                ShowViewerOptionMenuItem("Show framerate", ViewerOption::ShowFrameRateInfo);
-            }
-
-            ShowViewerOptionMenuItem("Show developer options", ViewerOption::ShowDeveloperOptions);
-
-            ImGui::Separator();
-
-            if (ImGui::MenuItem("Load default settings"))
-            {
-                //K4AViewerSettingsManager::Instance().SetDefaults();
-            }
-
-            ImGui::Separator();
-
-            if (ImGui::MenuItem("Quit"))
-            {
-                glfwSetWindowShouldClose(m_window, true);
-            }
-            ImGui::EndMenu();
-        }
-
-//        if (K4AViewerSettingsManager::Instance().GetViewerOption(ViewerOption::ShowDeveloperOptions))
-//        {
-//            if (ImGui::BeginMenu("Developer"))
-//            {
-//                ImGui::MenuItem("Show demo window", nullptr, &m_showDemoWindow);
-//                ImGui::MenuItem("Show style editor", nullptr, &m_showStyleEditor);
-//                ImGui::MenuItem("Show metrics window", nullptr, &m_showMetricsWindow);
-//                ImGui::MenuItem("Show perf counters", nullptr, &m_showPerfCounters);
-//
-//                ImGui::EndMenu();
-//            }
-//        }
-
-//        K4AWindowManager::Instance().SetMenuBarHeight(ImGui::GetWindowSize().y);
         ImGui::EndMainMenuBar();
+    }
+}
+
+void ViewerApp::ShowViewerOptionMenuItem(const char *msg, ViewerOption option)
+{
+    auto &settings = ViewerSettingsManager::Instance();
+    bool isSet = settings.GetViewerOption(option);
+
+    if (ImGui::MenuItem(msg, nullptr, isSet))
+    {
+        //settings.SetViewerOption(option, !isSet);
     }
 }
