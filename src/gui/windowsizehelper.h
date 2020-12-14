@@ -1,0 +1,8 @@
+//
+// Created by Yannick Roberts on 12/11/20.
+//
+
+#ifndef PROJECT_EDGE_WINDOWSIZEHELPER_H
+#define PROJECT_EDGE_WINDOWSIZEHELPER_H
+
+#endif //PROJECT_EDGE_WINDOWSIZEHELPER_H
