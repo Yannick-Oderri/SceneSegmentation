@@ -10,6 +10,7 @@
 #include <string>
 
 #include "gui/imgui_all.h"
+#include "gui/dockcontrol.h"
 
 class WindowDock
 {

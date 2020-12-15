@@ -56,9 +56,9 @@ public:
     }
 
 private:
-    ViewerSettingsManager();
-    void SaveSettings();
-    void LoadSettings();
+    ViewerSettingsManager(){};
+    void SaveSettings(){};
+    void LoadSettings(){};
 
     struct SettingsPayload
     {

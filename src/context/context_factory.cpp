@@ -3,8 +3,11 @@
 //
 
 #include <iostream>
-// #include <GL/glew.h>
+#ifdef WITH_GLEW
+#include <GL/glew.h>
+#else
 #include <glad/glad.h>
+#endif
 #include <boost/log/trivial.hpp>
 #include "res/resource_mgr.h"
 #include "gui/imgui_all.h"
@@ -29,10 +32,10 @@ std::unique_ptr<AppContext> AppContextBuilder::Build() {
         return nullptr;
     }
 
-//    if (this->initializeMainWindow() != 0){
-//        BOOST_LOG_TRIVIAL(error) << "Unable to initalize Opengl Window.";
-//        return nullptr;
-//    }
+    if (this->initializeMainWindow() != 0){
+        BOOST_LOG_TRIVIAL(error) << "Unable to initalize Opengl Window.";
+        return nullptr;
+    }
 
     if (this->initializeResMgr() != 0) {
         BOOST_LOG_TRIVIAL(error) << "Unable to initialize Resource Manager.";
@@ -105,13 +108,15 @@ int AppContextBuilder::initializeMainWindow() {
     glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
 #endif
 
-    // glewExperimental = GL_TRUE;
-
+#ifdef WITH_GLEW
+    glewExperimental = GL_TRUE;
     if ( GLEW_OK != glewInit( ) )
     {
         BOOST_LOG_TRIVIAL(error) << "Failed to initialize GLEW" ;
         return EXIT_FAILURE;
     }
+#endif
+
     int screen_width, screen_height;
     glfwGetFramebufferSize( window_, &screen_width, &screen_height );
     glViewport( 0, 0, screen_width, screen_height );

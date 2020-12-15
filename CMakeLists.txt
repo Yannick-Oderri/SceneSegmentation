@@ -14,6 +14,8 @@ OPTION(ENABLE_FREENECT2 "Enable Kinectv2 Drivers" OFF) # not functional atm
 OPTION(PACKAGE_TESTS "Build the tests" ON)
 OPTION(PACKAGE_RUNTIME "Build runtime files" OFF)
 
+OPTION(ENABLE_GLEW "Eanble Opengl Glew initializer" ON)
+
 # ========================================================
 # = Project Settings
 # ========================================================
@@ -29,6 +31,9 @@ ENDIF (ENABLE_K4A)
 ADD_DEFINITIONS(-DDEBUG_CNTR_PLCY_IMG_RESULTS)
 ADD_DEFINITIONS(-DDEBUG_DEPTH_PLCY_IMG_RESULTS)
 ADD_DEFINITIONS(-DDEBUG_CD_OPR_OUTPUT)
+IF (ENABLE_GLEW)
+  ADD_DEFINITIONS(-DWITH_GLEW)
+ENDIF(ENABLE_GLEW)
 
 IF(-DWITH_KINECTV2)
   IF(-DRESIZE_KINECTV2_FRAME)
@@ -114,6 +119,8 @@ SET(project_edge_SOURCE
 
         gui/application.cpp
         gui/windowmanager.cpp
+        gui/windowdock.cpp
+        gui/viewersettingsmanager.cpp
         
 )
 
@@ -207,7 +214,6 @@ ENDIF()
 IF(ENABLE_IMGUI)
   INCLUDE_DIRECTORIES( "${project_edge_VENDOR_DIR}/imgui" )
   INCLUDE_DIRECTORIES( "${project_edge_VENDOR_DIR}/imgui/examples" )
-  ADD_DEFINITIONS(-DIMGUI_IMPL_OPENGL_LOADER_GLAD)
   SET(imgui_src
           "${project_edge_VENDOR_DIR}/imgui/imgui.cpp"
           "${project_edge_VENDOR_DIR}/imgui/imgui_widgets.cpp"
@@ -239,17 +245,23 @@ ENDIF()
 IF(ENABLE_OPENGL)
   # Prefer OpenGLX Over Legacy
   # set(OpenGL_GL_PREFERENCE "GLVND")
-  FIND_PACKAGE(GLEW REQUIRED)
-  IF(${GLEW_FOUND})
-    GET_TARGET_PROPERTY(GLEW_INCLUDE_DIRS GLEW::glew INTERFACE_INCLUDE_DIRECTORIES)
-    GET_TARGET_PROPERTY(GLEW_LIBRARIES GLEW::glew INTERFACE_LINK_LIBRARIES)
-    MESSAGE(STATUS "GLEW LIB: ${GLEW_LIBRARIES}")
-  ENDIF(${GLEW_FOUND})
-  FIND_PACKAGE(gl3w REQUIRED)
-  get_target_property(GL3W_INCLUDE_DIRS gl3w INTERFACE_INCLUDE_DIRECTORIES)
-  IF(${gl3w_FOUND})
-    MESSAGE(STATUS "Found gl3w: ${GL3W_INCLUDE_DIRS}")
-  ENDIF()
+  IF(ENABLE_GLEW)
+    FIND_PACKAGE(GLEW REQUIRED)
+      IF(APPLE)
+        GET_TARGET_PROPERTY(GLEW_INCLUDE_DIRS GLEW::glew INTERFACE_INCLUDE_DIRECTORIES)
+        GET_TARGET_PROPERTY(GLEW_LIBRARIES GLEW::glew INTERFACE_LINK_LIBRARIES)
+      ENDIF()
+      MESSAGE(STATUS "GLEW LIB: ${GLEW_LIBRARIES}")
+  ENDIF(ENABLE_GLEW)
+
+  IF(ENABLE_GL3W)
+    FIND_PACKAGE(gl3w REQUIRED)
+    get_target_property(GL3W_INCLUDE_DIRS gl3w INTERFACE_INCLUDE_DIRECTORIES)
+    IF(${gl3w_FOUND})
+      MESSAGE(STATUS "Found gl3w: ${GL3W_INCLUDE_DIRS}")
+    ENDIF()
+  ENDIF(ENABLE_GL3W)
+
   FIND_PACKAGE(glfw3 REQUIRED)
   FIND_PACKAGE(OpenGL REQUIRED)
   ADD_SUBDIRECTORY("${project_edge_VENDOR_DIR}/glad")
@@ -298,7 +310,7 @@ ENDIF(ENABLE_OPENCV)
 IF(ENABLE_BOOST)
   SET(Boost_USE_STATIC_LIBS ON)
   SET(Boost_NO_BOOST_CMAKE ON) # OSX
-  FIND_PACKAGE(Boost 1.74.0
+  FIND_PACKAGE(Boost
           REQUIRED
           COMPONENTS filesystem log thread timer)
   IF(Boost_FOUND)
