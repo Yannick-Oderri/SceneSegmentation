@@ -28,5 +28,6 @@ protected:
 TEST_F(ViewerAppTest, create) {
     ViewerApp viewer(app_ctx);
 
+    viewer.Initialize();
     viewer.Run();
 }

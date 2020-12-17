@@ -10,17 +10,25 @@
 #include <boost/log/trivial.hpp>
 #include <thread>
 #include "dataflow/pipeline_filter.h"
+#include "dataflow/observer.h"
 #include "res/resource_mgr.h"
 #include "frame.h"
 
-class SimpleImageProducer: public ProducerPipeFilter<FrameElement* > {
+struct SimpleImageProducerConfig{
+    bool isDirty_;
+    int imageID_;
+    int updateRate_;
+};
+
+class SimpleImageProducer: public ProducerPipeFilter<FrameElement* >, public Observer<SimpleImageProducerConfig> {
     libfreenect2::Frame* t_image_;
     cv::Mat depth_image_;
     cv::Mat ndepth_image_;
     cv::Mat color_image_;
-    int frame_delay_;
-
-    const int image_idx_;
+    SimpleImageProducerConfig config_;
+    SimpleImageProducerConfig new_config_;
+    bool dirty_config_;
+    ResMgr* const res_mgr_;
 
     /** IR camera intrinsic calibration parameters.
    * Kinect v2 includes factory preset values for these parameters. They are used in depth image decoding, and Registration.
@@ -40,9 +48,19 @@ class SimpleImageProducer: public ProducerPipeFilter<FrameElement* > {
 
 public:
     SimpleImageProducer(ResMgr* const res_mgr, int img_idx, int frame_delay=33):
-    ProducerPipeFilter(new QueueClient<FrameElement* >(), res_mgr),
-    image_idx_(img_idx),
-    frame_delay_(frame_delay){}
+        ProducerPipeFilter(new QueueClient<FrameElement* >()),
+        res_mgr_(res_mgr),
+        config_({false, img_idx, frame_delay}),
+        dirty_config_(true),
+        new_config_(config_){}
+
+    SimpleImageProducer(ResMgr* const res_mgr, SimpleImageProducerConfig &config):
+            ProducerPipeFilter(new QueueClient<FrameElement* >()),
+            res_mgr_(res_mgr),
+            dirty_config_(true){
+        config_ = config;
+        new_config_ = config;
+    }
 
     void initialize(){
         if(this->res_mgr_ == nullptr){
@@ -50,17 +68,17 @@ public:
             return;
         }
 
-        if(this->image_idx_ < 0){
+        if(this->config_.imageID_ < 0){
             BOOST_LOG_TRIVIAL(error) << "Invalid Image ID";
             return;
         }
 
         // Load Color Image
         char name_buff[20];
-        std::sprintf(name_buff, "ctest%d.png", image_idx_);
+        std::sprintf(name_buff, "ctest%d.png", config_.imageID_);
         color_image_ = this->res_mgr_->loadColorImage(string(name_buff), cv::IMREAD_COLOR);
         // Load Depth Image
-        std::sprintf(name_buff, "test%d.png", image_idx_);
+        std::sprintf(name_buff, "test%d.png", config_.imageID_);
         cv::Mat t_depth_img = this->res_mgr_->loadDepthImage(string(name_buff), cv::IMREAD_UNCHANGED);
 
         // Extract ROI of depth image
@@ -109,13 +127,38 @@ public:
         int frame_count = 0;
         while(this->close_pipe_ == false){
 //            BOOST_LOG_TRIVIAL(info) << "Receiving Simple frame: " << frame_count;
+            if (dirty_config_) {
+                config_ = new_config_;
+                this->initialize();
+                dirty_config_ = false;
+            }
+
 
             FrameElement* frame_element = this->generateCurrentFrame(frame_count);
             out_queue_->push(frame_element);
 
             frame_count++;
-            std::this_thread::sleep_for(std::chrono::milliseconds(this->frame_delay_));
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000/this->config_.updateRate_));
         }
+    }
+
+    SimpleImageProducerConfig getCurrentConfig(){
+        return config_;
+    }
+
+    void NotifyTermination() {
+        this->close_pipe_ = true;
+    }
+    void ClearData() {
+
+    }
+    void NotifyData(const SimpleImageProducerConfig &data){
+        new_config_ = data;
+        dirty_config_ = true; // Use Queue??
+    }
+
+    bool getTerminationStatus() {
+        return this->close_pipe_;
     }
 
     /**
@@ -124,7 +167,6 @@ public:
     void signalEnd(){
         this->close_pipe_ = true;
     }
-
 };
 
 

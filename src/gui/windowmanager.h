@@ -5,6 +5,8 @@
 #ifndef PROJECT_EDGE_WINDOWMANGER_H
 #define PROJECT_EDGE_WINDOWMANGER_H
 
+#include "context/context.h"
+
 #include <vector>
 #include <memory>
 

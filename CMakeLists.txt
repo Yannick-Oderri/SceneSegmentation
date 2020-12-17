@@ -101,6 +101,7 @@ SET(project_edge_SOURCE
         # filter/gl_depth_img_filter.cpp
         # filter/contour_processor.cpp
         # filter/k4a_bridge_producer.cpp
+        filter/filtermanager.cpp
 
         # component/contour_policy.cpp
         # component/depth_img_policy.cpp
@@ -121,6 +122,10 @@ SET(project_edge_SOURCE
         gui/windowmanager.cpp
         gui/windowdock.cpp
         gui/viewersettingsmanager.cpp
+        gui/sourceselectiondockcontrol.cpp
+
+        gui/configcontrollerinterface.cpp
+        gui/simplesourceproducerconfigcontroller.cpp
         
 )
 

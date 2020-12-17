@@ -6,13 +6,17 @@
 #include "gui/application.hpp"
 #include "gui/windowmanager.h"
 
-
+#include "gui/sourceselectiondockcontrol.h"
 
 const ImVec4 ClearColor(0.01f, 0.01f, 0.01f, 1.0f);
 
 constexpr int GlfwFailureExitCode = -1;
 
 constexpr float HighDpiScaleFactor = 2.0f;
+
+void ViewerApp::Initialize() {
+    WindowManager::Instance().PushLeftDockControl(std::make_unique<SourceSelectionDockControl>(*appContext_.get()));
+}
 
 void ViewerApp::Run() {
     while (!glfwWindowShouldClose(appContext_->getGLContext())){

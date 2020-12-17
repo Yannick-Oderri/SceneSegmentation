@@ -19,6 +19,8 @@ public:
     ViewerApp(std::unique_ptr<AppContext> &ctxt): appContext_(std::move(ctxt)){};
     ~ViewerApp(){};
 
+    void Initialize();
+
     void Run();
 
     ViewerApp(const ViewerApp &) = delete;
